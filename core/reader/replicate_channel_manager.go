@@ -508,7 +508,13 @@ func (r *replicateChannelHandler) startReadChannel() {
 				close(r.msgPackChan)
 				return
 			}
+			if len(msgPack.Msgs) != 0 && msgPack.Msgs[0].Type() == commonpb.MsgType_Insert {
+				log.Info("receive insert msg from source mq")
+			}
 			r.msgPackChan <- r.handlePack(msgPack)
+			if len(msgPack.Msgs) != 0 && msgPack.Msgs[0].Type() == commonpb.MsgType_Insert {
+				log.Info("finish to handle msg pack, send insert msg to chan")
+			}
 		}
 	}()
 }

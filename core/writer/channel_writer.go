@@ -94,6 +94,9 @@ func (c *ChannelWriter) HandleReplicateMessage(ctx context.Context, channelName 
 		return nil, nil, errors.New("receive empty message pack")
 	}
 	msgBytesArr := make([][]byte, 0)
+	if len(msgPack.Msgs) != 0 && msgPack.Msgs[0].Type() == commonpb.MsgType_Insert {
+		log.Info("handler replicate insert message")
+	}
 	for _, msg := range msgPack.Msgs {
 		if msg.Type() != commonpb.MsgType_TimeTick {
 			log.Info("replicate msg", zap.String("type", msg.Type().String()))
@@ -131,6 +134,9 @@ func (c *ChannelWriter) HandleReplicateMessage(ctx context.Context, channelName 
 	}
 	c.messageManager.ReplicateMessage(message)
 	err := <-errChan
+	if len(msgPack.Msgs) != 0 && msgPack.Msgs[0].Type() == commonpb.MsgType_Insert {
+		log.Info("finish to replicate insert message")
+	}
 	if err != nil {
 		return nil, nil, err
 	}
