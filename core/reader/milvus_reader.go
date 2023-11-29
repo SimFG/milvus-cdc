@@ -26,21 +26,21 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/milvus-io/milvus/pkg/common"
-
 	"github.com/golang/protobuf/proto"
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
 	"github.com/milvus-io/milvus-proto/go-api/v2/msgpb"
 	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
+	"github.com/milvus-io/milvus/pkg/common"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream/mqwrapper"
 	"github.com/samber/lo"
+	clientv3 "go.etcd.io/etcd/client/v3"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/config"
 	"github.com/zilliztech/milvus-cdc/core/model"
 	"github.com/zilliztech/milvus-cdc/core/pb"
 	"github.com/zilliztech/milvus-cdc/core/util"
-	clientv3 "go.etcd.io/etcd/client/v3"
-	"go.uber.org/zap"
 )
 
 var log = util.Log
@@ -522,7 +522,11 @@ func (reader *MilvusCollectionReader) msgStream() (msgstream.MsgStream, error) {
 func (reader *MilvusCollectionReader) msgStreamChan(vchannel string, position *msgstream.MsgPosition, stream msgstream.MsgStream) (<-chan *msgstream.MsgPack, error) {
 	consumeSubName := vchannel + string(rand.Int31())
 	pchannelName := util.ToPhysicalChannel(vchannel)
-	stream.AsConsumer(context.Background(), []string{pchannelName}, consumeSubName, mqwrapper.SubscriptionPositionLatest)
+	initialPosition := mqwrapper.SubscriptionPositionUnknown
+	if position == nil {
+		initialPosition = mqwrapper.SubscriptionPositionLatest
+	}
+	stream.AsConsumer(context.Background(), []string{pchannelName}, consumeSubName, initialPosition)
 	if position == nil {
 		return stream.Chan(), nil
 	}
