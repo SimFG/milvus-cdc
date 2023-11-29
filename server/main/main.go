@@ -19,6 +19,7 @@ package main
 import (
 	"os"
 
+	"github.com/milvus-io/milvus/pkg/util/paramtable"
 	"github.com/zilliztech/milvus-cdc/core/util"
 	"github.com/zilliztech/milvus-cdc/server"
 	"go.uber.org/zap"
@@ -26,6 +27,8 @@ import (
 )
 
 func main() {
+	paramtable.Init()
+
 	s := &server.CDCServer{}
 
 	// parse config file
