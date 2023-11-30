@@ -191,6 +191,7 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 			case data := <-dataChan:
 				writeData(data)
 			default:
+				log.Info("quit work", zap.Any("id", c.id))
 				cdcWriter.Flush(context.Background())
 				return
 			}

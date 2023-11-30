@@ -26,6 +26,7 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
@@ -34,6 +35,7 @@ import (
 	"github.com/milvus-io/milvus/pkg/common"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream/mqwrapper"
+	"github.com/milvus-io/milvus/pkg/util/commonpbutil"
 	"github.com/milvus-io/milvus/pkg/util/tsoutil"
 	"github.com/samber/lo"
 	clientv3 "go.etcd.io/etcd/client/v3"
@@ -105,7 +107,9 @@ func NewMilvusCollectionReader(options ...config.Option[*MilvusCollectionReader]
 	}
 	reader.dataChan = make(chan *model.CDCData, reader.dataChanLen)
 	reader.isQuit.Store(false)
-	log.Info("create milvus collection reader", zap.String("collection", collectionInfosString(reader.collections)))
+	log.Info("create milvus collection reader",
+		zap.Int("data_chan_len", reader.dataChanLen),
+		zap.String("collection", collectionInfosString(reader.collections)))
 	return reader, nil
 }
 
@@ -563,7 +567,7 @@ func (reader *MilvusCollectionReader) readMsg(collectionName string, collectionI
 	c <-chan *msgstream.MsgPack,
 	barrierManager *DataBarrierManager) {
 
-	var i = 0
+	lastTime := time.Now()
 	logMsgPosition := func(endTs msgstream.Timestamp, end *msgstream.MsgPosition) {
 		msgTime := tsoutil.PhysicalTime(endTs)
 		log.Info("msg position", zap.String("collection_name", collectionName),
@@ -571,7 +575,7 @@ func (reader *MilvusCollectionReader) readMsg(collectionName string, collectionI
 			zap.String("vchannel_name", vchannelName),
 			zap.Time("msg_pack_time", msgTime),
 			zap.String("end_position", util.Base64MsgPosition(end)))
-		i = 1
+		lastTime = time.Now()
 	}
 	for {
 		if reader.isQuit.Load() && barrierManager.IsEmpty() {
@@ -582,11 +586,36 @@ func (reader *MilvusCollectionReader) readMsg(collectionName string, collectionI
 			return
 		}
 		var hasLogPosition = false
-		if i%100 == 0 {
+		currentTime := time.Now()
+		if int(currentTime.Sub(lastTime).Seconds()) > 20 {
 			logMsgPosition(msgPack.EndTs, msgPack.EndPositions[0])
 			hasLogPosition = true
+			if len(msgPack.Msgs) == 1 && msgPack.Msgs[0].Type() == commonpb.MsgType_TimeTick {
+				timeTickResult := msgpb.TimeTickMsg{
+					Base: commonpbutil.NewMsgBase(
+						commonpbutil.WithMsgType(commonpb.MsgType_TimeTick),
+						commonpbutil.WithMsgID(0),
+						commonpbutil.WithTimeStamp(msgPack.EndTs),
+						commonpbutil.WithSourceID(-1),
+					),
+				}
+				reader.sendData(&model.CDCData{
+					Msg: &msgstream.TimeTickMsg{
+						BaseMsg: msgstream.BaseMsg{
+							BeginTimestamp: msgPack.EndTs,
+							EndTimestamp:   msgPack.EndTs,
+							HashValues:     []uint32{0},
+							MsgPosition:    msgPack.EndPositions[0],
+						},
+						TimeTickMsg: timeTickResult,
+					},
+					Extra: map[string]any{
+						model.CollectionIDKey:   collectionID,
+						model.CollectionNameKey: collectionName,
+					},
+				})
+			}
 		}
-		i++
 		for _, msg := range msgPack.Msgs {
 			msgType := msg.Type()
 			if reader.filterMsgType(msgType) {

@@ -21,6 +21,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -70,6 +71,9 @@ type CDCWriterTemplate struct {
 
 	bufferData     []lo.Tuple2[*model.CDCData, WriteCallback]
 	bufferDataChan chan []lo.Tuple2[*model.CDCData, WriteCallback]
+
+	collectionTimeTickPositions map[int64]map[string]*commonpb.KeyDataPair
+	collectionNames             map[int64]string
 }
 
 // NewCDCWriterTemplate options must include HandlerOption
@@ -88,6 +92,7 @@ func NewCDCWriterTemplate(options ...config.Option[*CDCWriterTemplate]) CDCWrite
 		commonpb.MsgType_Delete:            c.handleDelete,
 		commonpb.MsgType_CreatePartition:   c.handleCreatePartition,
 		commonpb.MsgType_DropPartition:     c.handleDropPartition,
+		commonpb.MsgType_TimeTick:          c.handleTimeTick,
 		commonpb.MsgType_CreateIndex:       c.handleRPCRequest,
 		commonpb.MsgType_DropIndex:         c.handleRPCRequest,
 		commonpb.MsgType_LoadCollection:    c.handleRPCRequest,
@@ -129,6 +134,25 @@ func (c *CDCWriterTemplate) initBuffer() {
 			})
 
 			bufferData := <-c.bufferDataChan
+			if len(bufferData) == 0 {
+				var infosString []string
+				for collectionID, collectionPositions := range c.collectionTimeTickPositions {
+					var channels []string
+					for pChannelName, position := range collectionPositions {
+						c.bufferUpdatePositionFunc(collectionID, c.collectionNames[collectionID], pChannelName, position)
+						channels = append(channels, pChannelName)
+					}
+					infosString = append(infosString, fmt.Sprintf("%s-%d-%v", c.collectionNames[collectionID], collectionID, channels))
+				}
+
+				log.Info("update position from timetick msg",
+					zap.String("collection_timetick", strings.Join(infosString, ",")))
+				c.resetCollectionTimeTickPositions()
+				continue
+			}
+			c.resetCollectionTimeTickPositions()
+			log.Info("handle buffer data",
+				zap.Int("size", len(bufferData)), zap.String("msg_type", bufferData[0].A.Msg.Type().String()))
 			combineDataMap := make(map[string][]*CombineData)
 			c.combineDataFunc(bufferData, combineDataMap, positionFunc)
 			executeSuccesses := func(successes []func()) {
@@ -645,9 +669,13 @@ func (c *CDCWriterTemplate) periodFlush() {
 		if c.bufferConfig.Period <= 0 {
 			return
 		}
+		log.Info("start period flush",
+			zap.Duration("period", c.bufferConfig.Period),
+			zap.Int64("size_kb", c.bufferConfig.Size/1024))
 		ticker := time.NewTicker(c.bufferConfig.Period)
 		for {
 			<-ticker.C
+			log.Info("tick...")
 			c.Flush(context.Background())
 		}
 	}()
@@ -764,6 +792,43 @@ func (c *CDCWriterTemplate) handleDropPartition(ctx context.Context, data *model
 	defer c.bufferLock.Unlock()
 	c.bufferData = append(c.bufferData, lo.T2(data, callback))
 	c.clearBufferFunc()
+}
+
+func (c *CDCWriterTemplate) handleTimeTick(ctx context.Context, data *model.CDCData, callback WriteCallback) {
+	c.bufferLock.Lock()
+	defer c.bufferLock.Unlock()
+
+	if c.collectionTimeTickPositions == nil || c.collectionNames == nil {
+		c.resetCollectionTimeTickPositions()
+	}
+	tsMsg := data.Msg.(*msgstream.TimeTickMsg)
+	value, ok := data.Extra[model.CollectionIDKey]
+	if !ok {
+		log.Warn("leak the collection id")
+		return
+	}
+	nameValue, ok := data.Extra[model.CollectionNameKey]
+	if !ok {
+		log.Warn("leak the collection name")
+		return
+	}
+	collectionID := value.(int64)
+	channelPositions := c.collectionTimeTickPositions[collectionID]
+	if channelPositions == nil {
+		channelPositions = make(map[string]*commonpb.KeyDataPair)
+		c.collectionTimeTickPositions[collectionID] = channelPositions
+	}
+	position := tsMsg.Position()
+	channelPositions[position.GetChannelName()] = &commonpb.KeyDataPair{
+		Key:  position.GetChannelName(),
+		Data: position.GetMsgID(),
+	}
+	c.collectionNames[collectionID] = nameValue.(string)
+}
+
+func (c *CDCWriterTemplate) resetCollectionTimeTickPositions() {
+	c.collectionTimeTickPositions = make(map[int64]map[string]*commonpb.KeyDataPair)
+	c.collectionNames = make(map[int64]string)
 }
 
 func (c *CDCWriterTemplate) handleRPCRequest(ctx context.Context, data *model.CDCData, callback WriteCallback) {
