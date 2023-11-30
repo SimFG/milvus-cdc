@@ -21,12 +21,13 @@ import (
 	"strconv"
 
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/model"
 	"github.com/zilliztech/milvus-cdc/core/util"
 	"github.com/zilliztech/milvus-cdc/core/writer"
 	"github.com/zilliztech/milvus-cdc/server/metrics"
 	"github.com/zilliztech/milvus-cdc/server/store"
-	"go.uber.org/zap"
 )
 
 type WriteCallback struct {
@@ -48,7 +49,7 @@ func NewWriteCallback(factory store.MetaStoreFactory, rootPath string, taskID st
 }
 
 func (w *WriteCallback) OnFail(data *model.CDCData, err error) {
-	w.log.Warn("fail to write the msg", zap.String("data", util.Base64Encode(data)), zap.Error(err))
+	w.log.Warn("fail to write the msg", zap.Any("map", data.Extra), zap.String("data", util.Base64Msg(data.Msg)), zap.String("msgType", data.Msg.Type().String()), zap.Error(err))
 	metrics.WriterFailCountVec.WithLabelValues(w.taskID, metrics.WriteFailOnFail).Inc()
 	_ = store.UpdateTaskFailedReason(w.metaStoreFactory.GetTaskInfoMetaStore(context.Background()), w.taskID, err.Error())
 }

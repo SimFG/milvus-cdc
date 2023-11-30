@@ -5,16 +5,18 @@ import (
 	"encoding/base64"
 	"errors"
 	"math/rand"
+	"strconv"
 	"sync"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/milvus-io/milvus-proto/go-api/v2/msgpb"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream/mqwrapper"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/config"
 	"github.com/zilliztech/milvus-cdc/core/model"
 	"github.com/zilliztech/milvus-cdc/core/util"
-	"go.uber.org/zap"
 )
 
 type ChannelReader struct {
@@ -67,7 +69,7 @@ func (c *ChannelReader) initMsgStream() error {
 		return err
 	}
 
-	consumeSubName := c.channelName + string(rand.Int31())
+	consumeSubName := c.channelName + strconv.Itoa(rand.Int())
 	stream.AsConsumer(context.Background(), []string{c.channelName}, consumeSubName, c.subscriptionPosition)
 	log.Info("consume channel", zap.String("channel", c.channelName))
 

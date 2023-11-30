@@ -30,10 +30,11 @@ import (
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/config"
 	"github.com/zilliztech/milvus-cdc/core/model"
 	"github.com/zilliztech/milvus-cdc/core/util"
-	"go.uber.org/zap"
 )
 
 var log = util.Log
@@ -843,7 +844,8 @@ func (c *CDCWriterTemplate) isSupportType(fieldType entity.FieldType) bool {
 		fieldType == entity.FieldTypeString ||
 		fieldType == entity.FieldTypeVarChar ||
 		fieldType == entity.FieldTypeBinaryVector ||
-		fieldType == entity.FieldTypeFloatVector
+		fieldType == entity.FieldTypeFloatVector ||
+		fieldType == entity.FieldTypeJSON
 }
 
 func (c *CDCWriterTemplate) preCombineColumn(a []entity.Column, b []entity.Column) error {
@@ -903,6 +905,10 @@ func (c *CDCWriterTemplate) combineColumn(a []entity.Column, b []entity.Column) 
 				values = append(values, id)
 			}
 		case *entity.ColumnFloatVector:
+			for _, id := range columnValue.Data() {
+				values = append(values, id)
+			}
+		case *entity.ColumnJSONBytes:
 			for _, id := range columnValue.Data() {
 				values = append(values, id)
 			}

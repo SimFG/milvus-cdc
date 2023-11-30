@@ -18,11 +18,13 @@ package writer
 
 import (
 	"encoding/binary"
+	"reflect"
 
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
-	"github.com/zilliztech/milvus-cdc/core/util"
 	"go.uber.org/zap"
+
+	"github.com/zilliztech/milvus-cdc/core/util"
 )
 
 func SizeOfInsertMsg(msg *msgstream.InsertMsg) int64 {
@@ -116,8 +118,15 @@ func SizeColumn(column entity.Column) int64 {
 			total += binary.Size(f)
 		}
 		return int64(total)
+	case *entity.ColumnJSONBytes:
+		byteArr := c.Data()
+		total := 0
+		for _, s := range byteArr {
+			total += binary.Size(s)
+		}
+		return int64(total)
 	default:
-		util.Log.Warn("invalid type", zap.Any("column", column))
+		util.Log.Warn("invalid type", zap.Any("column", column), zap.Any("type", reflect.TypeOf(column)))
 		return -1
 	}
 	return int64(binary.Size(data))

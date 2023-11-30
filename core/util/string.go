@@ -22,6 +22,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"go.uber.org/zap"
 )
 
@@ -51,4 +52,13 @@ func Base64Encode(obj any) string {
 		return ""
 	}
 	return base64.StdEncoding.EncodeToString(objByte)
+}
+
+func Base64Msg(msg msgstream.TsMsg) string {
+	msgByte, err := msg.Marshal(msg)
+	if err != nil {
+		Log.Warn("fail to marshal msg", zap.Any("msg", msg))
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(msgByte.([]byte))
 }

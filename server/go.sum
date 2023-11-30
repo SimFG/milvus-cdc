@@ -57,6 +57,8 @@ github.com/DataDog/zstd v1.5.0/go.mod h1:g4AWEaM3yOg3HYfnJ3YIawPnVdXJh9QME85blwS
 github.com/Joker/hpp v1.0.0/go.mod h1:8x5n+M1Hp5hC0g8okX3sR3vFQwynaX/UgSOM9MeBKzY=
 github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAElWljhcU=
 github.com/Shopify/goreferrer v0.0.0-20181106222321-ec9c9a553398/go.mod h1:a1uqRtAwp2Xwc6WNPJEufxJ7fx3npB4UV/JOLmbu5I0=
+github.com/SimFG/milvus-sdk-go/v2 v2.0.0-20231129162748-8b794f7fe148 h1:SS4Zm6sBCX6Vnwj9yjY+5+sDuEw4RdyveWt38KLO9+0=
+github.com/SimFG/milvus-sdk-go/v2 v2.0.0-20231129162748-8b794f7fe148/go.mod h1:MrlykwjCuFFg3xYL7gh5JmVkbpSo04W1w7MVT3JiE6A=
 github.com/actgardner/gogen-avro/v10 v10.1.0/go.mod h1:o+ybmVjEa27AAr35FRqU98DJu1fXES56uXniYFv4yDA=
 github.com/actgardner/gogen-avro/v10 v10.2.1/go.mod h1:QUhjeHPchheYmMDni/Nx7VB0RsT/ee8YIgGY/xpEQgQ=
 github.com/actgardner/gogen-avro/v9 v9.1.0/go.mod h1:nyTj6wPqDJoxM3qdnjcLv+EnMDSDFqE0qDpva2QRmKc=
@@ -479,8 +481,6 @@ github.com/microcosm-cc/bluemonday v1.0.2/go.mod h1:iVP4YcDBq+n/5fb23BhYFvIMq/le
 github.com/miekg/dns v1.0.14/go.mod h1:W1PPwlIAgtquWBMBEV9nkV9Cazfe8ScdGz/Lj7v3Nrg=
 github.com/milvus-io/milvus-proto/go-api/v2 v2.3.4-0.20231114080011-9a495865219e h1:IH1WAXwEF8vbwahPdupi4zzRNWViT4B7fZzIjtRLpG4=
 github.com/milvus-io/milvus-proto/go-api/v2 v2.3.4-0.20231114080011-9a495865219e/go.mod h1:1OIl0v5PQeNxIJhCvY+K55CBUOYDZevw9g9380u1Wek=
-github.com/milvus-io/milvus-sdk-go/v2 v2.3.3 h1:jHZJTQsTwZCxT5UyogIYecKqkjPAXyuYODfBAP3Qq2w=
-github.com/milvus-io/milvus-sdk-go/v2 v2.3.3/go.mod h1:MrlykwjCuFFg3xYL7gh5JmVkbpSo04W1w7MVT3JiE6A=
 github.com/milvus-io/milvus/pkg v0.0.2-0.20231129025029-321c5c32e38d h1:kb+P3XUXoY3lyhwKn08bbJlnlIp3FVYNMK8sGXZzMrA=
 github.com/milvus-io/milvus/pkg v0.0.2-0.20231129025029-321c5c32e38d/go.mod h1:oqSq5zhCBst0mlnJzTfF5AleXf1k1eAI2GffLZcDEgA=
 github.com/milvus-io/pulsar-client-go v0.6.10 h1:eqpJjU+/QX0iIhEo3nhOqMNXL+TyInAs1IAHZCrCM/A=

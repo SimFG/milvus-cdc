@@ -22,17 +22,17 @@ import (
 	"strconv"
 	"sync"
 
-	"github.com/zilliztech/milvus-cdc/server/metrics"
-
 	"github.com/cockroachdb/errors"
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/model"
 	"github.com/zilliztech/milvus-cdc/core/reader"
 	"github.com/zilliztech/milvus-cdc/core/util"
 	"github.com/zilliztech/milvus-cdc/core/writer"
+	"github.com/zilliztech/milvus-cdc/server/metrics"
 	"github.com/zilliztech/milvus-cdc/server/model/meta"
-	"go.uber.org/zap"
 )
 
 var EmptyCdcTask = &CDCTask{}
@@ -171,6 +171,7 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 			count = int(msg.NumRows)
 			collectionID = msg.CollectionID
 		}
+		log.Info("write buffer data", zap.Any("data_type", data.Msg.Type().String()))
 		if msgType != "" {
 			metrics.ReadMsgRowCountVec.WithLabelValues(c.id, strconv.FormatInt(collectionID, 10), msgType).Add(float64(count))
 		}

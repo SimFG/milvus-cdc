@@ -470,7 +470,7 @@ func GetMsgStreamChan(pChannel string, position []*msgpb.MsgPosition, isLatestMs
 	if err != nil {
 		log.Panic("failed to create tt msg stream", zap.Error(err))
 	}
-	consumeSubName := "cdc-" + pChannel + string(rand.Int31())
+	consumeSubName := "cdc-" + pChannel + strconv.Itoa(rand.Int())
 	ttMsgStream.AsConsumer(context.Background(), []string{pChannel}, consumeSubName, mqwrapper.SubscriptionPositionLatest)
 	if isLatestMsg {
 		return ttMsgStream.Chan()
@@ -493,7 +493,7 @@ func GetLatestPosition(pChannel string) {
 	if err != nil {
 		log.Panic("failed to create tt msg stream", zap.Error(err))
 	}
-	consumeSubName := "get-latest-position-" + pChannel + string(rand.Int31())
+	consumeSubName := "get-latest-position-" + pChannel + strconv.Itoa(rand.Int()))
 	ttMsgStream.AsConsumer(context.Background(), []string{pChannel}, consumeSubName, mqwrapper.SubscriptionPositionEarliest)
 	msgID, err := ttMsgStream.GetLatestMsgID(pChannel)
 	if err != nil {

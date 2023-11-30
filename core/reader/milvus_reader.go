@@ -520,7 +520,7 @@ func (reader *MilvusCollectionReader) msgStream() (msgstream.MsgStream, error) {
 }
 
 func (reader *MilvusCollectionReader) msgStreamChan(vchannel string, position *msgstream.MsgPosition, stream msgstream.MsgStream) (<-chan *msgstream.MsgPack, error) {
-	consumeSubName := vchannel + string(rand.Int31())
+	consumeSubName := vchannel + strconv.Itoa(rand.Int())
 	pchannelName := util.ToPhysicalChannel(vchannel)
 	initialPosition := mqwrapper.SubscriptionPositionUnknown
 	if position == nil {
@@ -633,5 +633,8 @@ func (reader *MilvusCollectionReader) QuitRead(ctx context.Context) {
 }
 
 func (reader *MilvusCollectionReader) sendData(data *model.CDCData) {
+	if data.Msg != nil {
+		log.Info("read data", zap.Any("data", data.Msg.Type().String()))
+	}
 	reader.dataChan <- data
 }
