@@ -20,10 +20,11 @@ import "github.com/zilliztech/milvus-cdc/server/model"
 
 //go:generate easytags $GOFILE json,mapstructure
 type CreateRequest struct {
-	MilvusConnectParam model.MilvusConnectParam `json:"milvus_connect_param" mapstructure:"milvus_connect_param"`
-	CollectionInfos    []model.CollectionInfo   `json:"collection_infos" mapstructure:"collection_infos"`
-	RPCChannelInfo     model.ChannelInfo        `json:"rpc_channel_info" mapstructure:"rpc_channel_info"`
-	BufferConfig       model.BufferConfig       `json:"buffer_config" mapstructure:"buffer_config"`
+	MilvusConnectParam  model.MilvusConnectParam       `json:"milvus_connect_param" mapstructure:"milvus_connect_param"`
+	CollectionInfos     []model.CollectionInfo         `json:"collection_infos" mapstructure:"collection_infos"`
+	CollectionPositions map[string][]model.ChannelInfo `json:"collection_positions" mapstructure:"collection_positions"`
+	RPCChannelInfo      model.ChannelInfo              `json:"rpc_channel_info" mapstructure:"rpc_channel_info"`
+	BufferConfig        model.BufferConfig             `json:"buffer_config" mapstructure:"buffer_config"`
 }
 
 type CreateResponse struct {

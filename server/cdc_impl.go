@@ -28,8 +28,11 @@ import (
 	"github.com/golang/protobuf/proto"
 	"github.com/google/uuid"
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
+	"github.com/milvus-io/milvus-proto/go-api/v2/msgpb"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream/mqwrapper"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/config"
 	"github.com/zilliztech/milvus-cdc/core/pb"
 	cdcreader "github.com/zilliztech/milvus-cdc/core/reader"
@@ -41,7 +44,6 @@ import (
 	"github.com/zilliztech/milvus-cdc/server/model/meta"
 	"github.com/zilliztech/milvus-cdc/server/model/request"
 	"github.com/zilliztech/milvus-cdc/server/store"
-	"go.uber.org/zap"
 )
 
 type MetaCDC struct {
@@ -154,7 +156,7 @@ func (e *MetaCDC) ReloadTask() {
 		})
 		e.collectionNames.data[milvusAddress] = append(e.collectionNames.data[milvusAddress], newCollectionNames...)
 		e.collectionNames.excludeData[milvusAddress] = append(e.collectionNames.excludeData[milvusAddress], taskInfo.ExcludeCollections...)
-		task, err := e.newCdcTask(taskInfo)
+		task, err := e.newCdcTask(taskInfo, nil)
 		if err != nil {
 			log.Warn("fail to new cdc task", zap.Any("task_info", taskInfo), zap.Error(err))
 			continue
@@ -256,7 +258,7 @@ func (e *MetaCDC) Create(req *request.CreateRequest) (resp *request.CreateRespon
 	}
 
 	info.State = meta.TaskStateRunning
-	task, err := e.newCdcTask(info)
+	task, err := e.newCdcTask(info, req.CollectionPositions)
 	if err != nil {
 		log.Warn("fail to new cdc task", zap.Error(err))
 		return nil, servererror.NewServerError(err)
@@ -368,7 +370,7 @@ func (e *MetaCDC) getUuid() string {
 	return strings.ReplaceAll(uid.String(), "-", "")
 }
 
-func (e *MetaCDC) newCdcTask(info *meta.TaskInfo) (*CDCTask, error) {
+func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string][]model.ChannelInfo) (*CDCTask, error) {
 	metrics.StreamingCollectionCountVec.WithLabelValues(info.TaskID, metrics.TotalStatusLabel).Add(float64(len(info.CollectionInfos)))
 
 	e.cdcTasks.Lock()
@@ -425,9 +427,27 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo) (*CDCTask, error) {
 			taskPosition[position.CollectionName] = position.Positions
 		}
 
+		if collectionPositions != nil {
+			for s, infos := range collectionPositions {
+				for _, channelInfo := range infos {
+					inputPosition, err := decodePosition(channelInfo.Name, channelInfo.Position)
+					if err != nil {
+						taskLog.Warn("fail to decode the task collection position", zap.Error(err))
+						return nil, err
+					}
+					taskCollectionPositions, ok := taskPosition[s]
+					if !ok {
+						taskCollectionPositions = make(map[string]*commonpb.KeyDataPair)
+						taskPosition[s] = taskCollectionPositions
+					}
+					taskCollectionPositions[channelInfo.Name] = inputPosition
+				}
+			}
+		}
+
 		var options []config.Option[*cdcreader.MilvusCollectionReader]
-		for _, collectionInfo := range info.CollectionInfos {
-			options = append(options, cdcreader.CollectionInfoOption(collectionInfo.Name, taskPosition[collectionInfo.Name]))
+		for s, m := range taskPosition {
+			options = append(options, cdcreader.CollectionInfoOption(s, m))
 		}
 		monitor := NewReaderMonitor(info.TaskID)
 		etcdConfig := config.NewMilvusEtcdConfig(config.MilvusEtcdEndpointsOption(sourceConfig.EtcdAddress),
@@ -485,6 +505,22 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo) (*CDCTask, error) {
 	})
 	e.cdcTasks.data[info.TaskID] = task
 	return task, nil
+}
+
+func decodePosition(pchannel, position string) (*commonpb.KeyDataPair, error) {
+	positionBytes, err := base64.StdEncoding.DecodeString(position)
+	if err != nil {
+		return nil, err
+	}
+	msgPosition := &msgpb.MsgPosition{}
+	err = proto.Unmarshal(positionBytes, msgPosition)
+	if err != nil {
+		return nil, err
+	}
+	return &commonpb.KeyDataPair{
+		Key:  pchannel,
+		Data: msgPosition.MsgID,
+	}, nil
 }
 
 func (e *MetaCDC) Delete(req *request.DeleteRequest) (*request.DeleteResponse, error) {

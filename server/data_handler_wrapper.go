@@ -19,6 +19,9 @@ package server
 import (
 	"context"
 
+	"github.com/milvus-io/milvus-sdk-go/v2/entity"
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/util"
 	"github.com/zilliztech/milvus-cdc/core/writer"
 	"github.com/zilliztech/milvus-cdc/server/metrics"
@@ -64,14 +67,33 @@ func (d *DataHandlerWrapper) DropCollection(ctx context.Context, param *writer.D
 func (d *DataHandlerWrapper) Insert(ctx context.Context, param *writer.InsertParam) (err error) {
 	defer func() {
 		d.metric(param.CollectionName, "Insert", err != nil)
+		log.Info("insert done",
+			zap.String("collection_name", param.CollectionName),
+			zap.String("partition_name", param.PartitionName),
+			zap.Int("data_count", GetDataLen(param.Columns)),
+			zap.String("task_id", d.taskID),
+			zap.Error(err))
 	}()
 	err = d.handler.Insert(ctx, param)
 	return
 }
 
+func GetDataLen(columns []entity.Column) int {
+	if len(columns) == 0 {
+		return -1
+	}
+	return columns[0].Len()
+}
+
 func (d *DataHandlerWrapper) Delete(ctx context.Context, param *writer.DeleteParam) (err error) {
 	defer func() {
 		d.metric(param.CollectionName, "Delete", err != nil)
+		log.Info("delete done",
+			zap.String("collection_name", param.CollectionName),
+			zap.String("partition_name", param.PartitionName),
+			zap.Int("data_count", param.Column.Len()),
+			zap.String("task_id", d.taskID),
+			zap.Error(err))
 	}()
 	err = d.handler.Delete(ctx, param)
 	return

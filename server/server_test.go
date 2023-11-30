@@ -18,13 +18,23 @@ package server
 
 import (
 	"bytes"
+	"context"
+	"encoding/base64"
 	"encoding/json"
 	"io"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
+	"github.com/milvus-io/milvus-sdk-go/v2/entity"
+	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"github.com/stretchr/testify/assert"
+	"go.uber.org/zap"
+
+	"github.com/zilliztech/milvus-cdc/core/util"
+	"github.com/zilliztech/milvus-cdc/core/writer"
 	cdcerror "github.com/zilliztech/milvus-cdc/server/error"
 	"github.com/zilliztech/milvus-cdc/server/model/request"
 )
@@ -194,3 +204,85 @@ func TestCDCHandler(t *testing.T) {
 		assert.Contains(t, string(responseWriter.resp), taskID)
 	})
 }
+
+func SkipTestDynamicSchema(t *testing.T) {
+	//base64Data := "ChkIkAMQwrKQx+nHm5gGGIaAsO/S0ZuYBiAFEitieS1kZXYtcm9vdGNvb3JkLWRtbF8yXzQ0NTk3NDcxMTUwMDgxOTYzOXYwIgxoZWxsb19taWx2dXMqCF9kZWZhdWx0OLeZwY6y9JqYBkC4mcGOsvSamAZI+sycx+nHm5gGUlqGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAaGgLDv0tGbmAZaWriykMfpx5uYBrmykMfpx5uYBrqykMfpx5uYBruykMfpx5uYBryykMfpx5uYBr2ykMfpx5uYBr6ykMfpx5uYBr+ykMfpx5uYBsCykMfpx5uYBsGykMfpx5uYBmrbAghlEgplbWJlZGRpbmdzKGUiyAIICBLDAgrAArlLIz+D5eA+YEkHPhT17z43ij4//q8CPVpCoj7kPxo/0JZmP9Ud5j71NT0+n83bPvSRzj7Cm8o+mEYyPyxqeT7fqdk+VIsSP9q52j5/z2E/j0NYP24TMT+j74o+Te15P40oHT652TU/wWgdPgUeqz4b+Hc/ZHElP40nYj/65Cg/f5oSPyaabz/OfEI+/v7APlBQoT5FgI0+JL8bP5W2iz1lCgk88NE3P3u9VT86Vyk/Bs17P3VZIj4laZ4+PTBxPnTBRz6FuU0/Ik4xPjHTlz3/mlo/LzdPP4CFGz0n6Ys+i+fwPRifMT9vxEY++tJPPy+MZD81Ng4/3E9jP9FS8T5ZZp8+mNc7P1bKuz5wCWA+VjuBPpmCUj85KVc+rSssPncaUD9kfT8/zJ6MPhGamT1ByRM/aV0qPyOuXj8+UcM+amIICxIGcmFuZG9tKGYaVCpSClAraWzlxz3sPyUGBHo6y+I/+UAgdOBT6j9Q/g1jFtu3P4Trg80wyOs/KIYvnY1U5D9yaYmLM8njP0HRKjS5duU/WFIFr7x05z8SdeWLlifhP2o5CBcSBSRtZXRhKGcwARoqSigKAnt9CgJ7fQoCe30KAnt9CgJ7fQoCe30KAnt9CgJ7fQoCe30KAnt9amgIBRICcGsoZBpeGlwKWriykMfpx5uYBrmykMfpx5uYBrqykMfpx5uYBruykMfpx5uYBryykMfpx5uYBr2ykMfpx5uYBr6ykMfpx5uYBr+ykMfpx5uYBsCykMfpx5uYBsGykMfpx5uYBnAKeAE="
+	base64Data := "ChkIkAMQybKQx+nHm5gGGIeA0JGE2ZuYBiAFEitieS1kZXYtcm9vdGNvb3JkLWRtbF8yXzQ0NTk3NDcxMTUwMDgxOTYzOXYwIgxoZWxsb19taWx2dXMqCF9kZWZhdWx0OLeZwY6y9JqYBkC4mcGOsvSamAZIt42px+nHm5gGUjaHgNCRhNmbmAaHgNCRhNmbmAaHgNCRhNmbmAaHgNCRhNmbmAaHgNCRhNmbmAaHgNCRhNmbmAZaNsOykMfpx5uYBsSykMfpx5uYBsWykMfpx5uYBsaykMfpx5uYBseykMfpx5uYBsiykMfpx5uYBmrbAQhlEgplbWJlZGRpbmdzKGUiyAEICBLDAQrAAblLIz+D5eA+YEkHPhT17z43ij4//q8CPVpCoj7kPxo/0JZmP9Ud5j71NT0+n83bPvSRzj7Cm8o+mEYyPyxqeT7fqdk+VIsSP9q52j5/z2E/j0NYP24TMT+j74o+Te15P40oHT652TU/wWgdPgUeqz4b+Hc/ZHElP40nYj/65Cg/f5oSPyaabz/OfEI+/v7APlBQoT5FgI0+JL8bP5W2iz1lCgk88NE3P3u9VT86Vyk/Bs17P3VZIj4laZ4+PTBxPmpCCAsSBnJhbmRvbShmGjQqMgowAAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/AAAAAAAA8D8AAAAAAADwPwAAAAAAAPA/akcIFxIFJG1ldGEoZzABGjhKNgoHeyJhIjoxfQoHeyJiIjoxfQoHeyJjIjoxfQoHeyJkIjoxfQoHeyJlIjoxfQoHeyJmIjoxfWpECAUSAnBrKGQaOho4CjbDspDH6cebmAbEspDH6cebmAbFspDH6cebmAbGspDH6cebmAbHspDH6cebmAbIspDH6cebmAZwBngB"
+	byteData, err := base64.StdEncoding.DecodeString(base64Data)
+	if err != nil {
+		panic(err)
+	}
+	data := &msgstream.InsertMsg{}
+	tsMsg, err := data.Unmarshal(byteData)
+	if err != nil {
+		panic(err)
+	}
+
+	factory := writer.NewDefaultMilvusClientFactory()
+	timeoutContext, cancelFunc := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelFunc()
+	//address := "in01-55013270bc2743c.aws-us-west-2.vectordb-uat3.zillizcloud.com:19533"
+	//username := "root"
+	//password := "q3.5,8A:-1RZ+7{B7z<Cpe!U|vT[k%>U"
+	//milvusClient, err := factory.NewGrpcClientWithTLSAuth(timeoutContext, address, username, password)
+
+	address := "localhost:19530"
+	username := "root"
+	password := "Milvus"
+	milvusClient, err := factory.NewGrpcClientWithAuth(timeoutContext, address, username, password)
+	if err != nil {
+		panic(err)
+	}
+
+	msg := tsMsg.(*msgstream.InsertMsg)
+	var columns []entity.Column
+	for _, fieldData := range msg.FieldsData {
+		if fieldData.GetType() == schemapb.DataType_JSON {
+			data, _ := fieldData.GetScalars().GetData().(*schemapb.ScalarField_JsonData)
+			for i, x := range data.JsonData.GetData() {
+				log.Info("json data", zap.String("data", string(x)), zap.Int("index", i))
+			}
+		}
+		if column, err := entity.FieldDataColumn(fieldData, 0, -1); err == nil {
+			columns = append(columns, column)
+		} else {
+			column, err := entity.FieldDataVector(fieldData)
+			if err != nil {
+				panic(err)
+			}
+			columns = append(columns, column)
+		}
+	}
+	result, err := milvusClient.Insert(timeoutContext, msg.CollectionName, msg.PartitionName, columns...)
+	if err != nil {
+		panic(err)
+	}
+	log.Info("result", zap.Any("result", result))
+}
+
+func TestGetMsgPosition(t *testing.T) {
+	data := []byte("CAEQ9pUBGAAgAA==")
+	channelName := "by-dev-rootcoord-dml_1"
+	position := util.Base64MsgPosition(&msgstream.MsgPosition{
+		ChannelName: channelName,
+		MsgID:       data,
+	})
+	kp, _ := decodePosition(channelName, position)
+	log.Info("position", zap.Any("position", position), zap.Any("kp", kp))
+}
+
+//func decodePosition(pchannel, position string) (*commonpb.KeyDataPair, error) {
+//	positionBytes, err := base64.StdEncoding.DecodeString(position)
+//	if err != nil {
+//		return nil, err
+//	}
+//	msgPosition := &msgpb.MsgPosition{}
+//	err = proto.Unmarshal(positionBytes, msgPosition)
+//	if err != nil {
+//		return nil, err
+//	}
+//	return &commonpb.KeyDataPair{
+//		Key:  pchannel,
+//		Data: msgPosition.MsgID,
+//	}, nil
+//}

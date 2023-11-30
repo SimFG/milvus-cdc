@@ -49,7 +49,12 @@ func NewWriteCallback(factory store.MetaStoreFactory, rootPath string, taskID st
 }
 
 func (w *WriteCallback) OnFail(data *model.CDCData, err error) {
-	w.log.Warn("fail to write the msg", zap.Any("map", data.Extra), zap.String("data", util.Base64Msg(data.Msg)), zap.String("msgType", data.Msg.Type().String()), zap.Error(err))
+	w.log.Warn("fail to write the msg",
+		zap.Any("map", data.Extra),
+		zap.String("data", util.Base64Msg(data.Msg)),
+		zap.String("position", util.Base64MsgPosition(data.Msg.Position())),
+		zap.String("msgType", data.Msg.Type().String()),
+		zap.Error(err))
 	metrics.WriterFailCountVec.WithLabelValues(w.taskID, metrics.WriteFailOnFail).Inc()
 	_ = store.UpdateTaskFailedReason(w.metaStoreFactory.GetTaskInfoMetaStore(context.Background()), w.taskID, err.Error())
 }
@@ -78,6 +83,10 @@ func (w *WriteCallback) OnSuccess(collectionID int64, channelInfos map[string]wr
 
 func (w *WriteCallback) UpdateTaskCollectionPosition(collectionID int64, collectionName string, pChannelName string, position *commonpb.KeyDataPair) {
 	if position == nil {
+		w.log.Warn("fail to update the collection position: empty position",
+			zap.Int64("collection_id", collectionID),
+			zap.String("vchannel_name", pChannelName),
+		)
 		return
 	}
 	err := store.UpdateTaskCollectionPosition(

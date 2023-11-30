@@ -17,12 +17,12 @@
 package util
 
 import (
-	"errors"
 	"fmt"
 	"reflect"
 
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
 	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
+	"github.com/milvus-io/milvus/pkg/log"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"go.uber.org/zap"
 )
@@ -42,7 +42,8 @@ func GetChannelStartPosition(vchannel string, startPositions []*commonpb.KeyData
 			MsgID:       sp.GetData(),
 		}, nil
 	}
-	return nil, errors.New("not found channel start position, channel:" + vchannel)
+	log.Warn("not found channel start position", zap.String("vchannel", vchannel))
+	return nil, nil
 }
 
 func getNumRowsOfScalarField(datas interface{}) uint64 {

@@ -20,6 +20,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"math/rand"
 	"path"
 	"strconv"
@@ -33,6 +34,7 @@ import (
 	"github.com/milvus-io/milvus/pkg/common"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream/mqwrapper"
+	"github.com/milvus-io/milvus/pkg/util/tsoutil"
 	"github.com/samber/lo"
 	clientv3 "go.etcd.io/etcd/client/v3"
 	"go.uber.org/zap"
@@ -103,7 +105,18 @@ func NewMilvusCollectionReader(options ...config.Option[*MilvusCollectionReader]
 	}
 	reader.dataChan = make(chan *model.CDCData, reader.dataChanLen)
 	reader.isQuit.Store(false)
+	log.Info("create milvus collection reader", zap.String("collection", collectionInfosString(reader.collections)))
 	return reader, nil
+}
+
+func collectionInfosString(infos []CollectionInfo) string {
+	var infosString []string
+	for _, info := range infos {
+		infosString = append(infosString, fmt.Sprintf("%s-%v", info.collectionName, lo.MapToSlice(info.positions, func(k string, v *commonpb.KeyDataPair) string {
+			return k
+		})))
+	}
+	return strings.Join(infosString, ",")
 }
 
 func (reader *MilvusCollectionReader) StartRead(ctx context.Context) <-chan *model.CDCData {
@@ -458,7 +471,7 @@ func (reader *MilvusCollectionReader) readStreamData(info *pb.CollectionInfo, se
 	barrierManager := NewDataBarrierManager(len(vchannels), reader.sendData)
 	log.Info("read vchannels", zap.Strings("channels", vchannels))
 	for _, vchannel := range vchannels {
-		position, err := reader.collectionPosition(info, vchannel)
+		position, err := reader.collectionPosition(info, vchannel, sendCreateMsg)
 		handleError := func() {
 			reader.monitor.OnFailReadStream(info.ID, reader.collectionName(info), vchannel, err)
 			reader.isQuit.Store(true)
@@ -486,12 +499,13 @@ func (reader *MilvusCollectionReader) readStreamData(info *pb.CollectionInfo, se
 	}
 }
 
-func (reader *MilvusCollectionReader) collectionPosition(info *pb.CollectionInfo, vchannelName string) (*msgstream.MsgPosition, error) {
+func (reader *MilvusCollectionReader) collectionPosition(info *pb.CollectionInfo, vchannelName string, sendCreateCollection bool) (*msgstream.MsgPosition, error) {
 	pchannel := util.ToPhysicalChannel(vchannelName)
 	for _, collection := range reader.collections {
 		if collection.collectionName == reader.collectionName(info) &&
 			collection.positions != nil {
 			if pair, ok := collection.positions[pchannel]; ok {
+				log.Info("get the collection position", zap.String("vchannel", vchannelName))
 				return &msgstream.MsgPosition{
 					ChannelName: vchannelName,
 					MsgID:       pair.GetData(),
@@ -499,7 +513,10 @@ func (reader *MilvusCollectionReader) collectionPosition(info *pb.CollectionInfo
 			}
 		}
 	}
-	// return util.GetChannelStartPosition(vchannelName, info.StartPositions)
+	if sendCreateCollection {
+		log.Info("get the start collection position", zap.String("vchannel", vchannelName))
+		return util.GetChannelStartPosition(vchannelName, info.StartPositions)
+	}
 	return nil, nil
 }
 
@@ -530,6 +547,7 @@ func (reader *MilvusCollectionReader) msgStreamChan(vchannel string, position *m
 	if position == nil {
 		return stream.Chan(), nil
 	}
+	log.Info("seek the msg position", zap.String("vchannel", vchannel), zap.String("position", util.Base64MsgPosition(position)))
 	position.ChannelName = pchannelName
 	err := stream.Seek(context.Background(), []*msgstream.MsgPosition{position})
 	if err != nil {
@@ -544,6 +562,17 @@ func (reader *MilvusCollectionReader) msgStreamChan(vchannel string, position *m
 func (reader *MilvusCollectionReader) readMsg(collectionName string, collectionID int64, vchannelName string,
 	c <-chan *msgstream.MsgPack,
 	barrierManager *DataBarrierManager) {
+
+	var i = 0
+	logMsgPosition := func(endTs msgstream.Timestamp, end *msgstream.MsgPosition) {
+		msgTime := tsoutil.PhysicalTime(endTs)
+		log.Info("msg position", zap.String("collection_name", collectionName),
+			zap.Int64("collection_id", collectionID),
+			zap.String("vchannel_name", vchannelName),
+			zap.Time("msg_pack_time", msgTime),
+			zap.String("end_position", util.Base64MsgPosition(end)))
+		i = 1
+	}
 	for {
 		if reader.isQuit.Load() && barrierManager.IsEmpty() {
 			return
@@ -552,14 +581,24 @@ func (reader *MilvusCollectionReader) readMsg(collectionName string, collectionI
 		if msgPack == nil {
 			return
 		}
+		var hasLogPosition = false
+		if i%100 == 0 {
+			logMsgPosition(msgPack.EndTs, msgPack.EndPositions[0])
+			hasLogPosition = true
+		}
+		i++
 		for _, msg := range msgPack.Msgs {
 			msgType := msg.Type()
 			if reader.filterMsgType(msgType) {
 				continue
 			}
-			log.Info("msgType", zap.Any("msg_type", msgType))
 			if reader.filterMsg(collectionName, collectionID, msg) {
 				continue
+			}
+			log.Info("msgType", zap.Any("msg_type", msgType))
+			if !hasLogPosition {
+				logMsgPosition(msgPack.EndTs, msgPack.EndPositions[0])
+				hasLogPosition = true
 			}
 			data := &model.CDCData{
 				Msg: msg,

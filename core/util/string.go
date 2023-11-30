@@ -22,6 +22,7 @@ import (
 	"strings"
 	"unsafe"
 
+	"github.com/golang/protobuf/proto"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"go.uber.org/zap"
 )
@@ -61,4 +62,13 @@ func Base64Msg(msg msgstream.TsMsg) string {
 		return ""
 	}
 	return base64.StdEncoding.EncodeToString(msgByte.([]byte))
+}
+
+func Base64MsgPosition(position *msgstream.MsgPosition) string {
+	positionByte, err := proto.Marshal(position)
+	if err != nil {
+		Log.Warn("fail to marshal position", zap.Any("position", position))
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(positionByte)
 }
