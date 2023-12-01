@@ -1,0 +1,20 @@
+etcdAddress:
+  - localhost:2379
+taskPositionPrefix: cdc/task_position
+taskPositionKey: 90de65ec2d004298985a8122a77247dd/445993766148522019
+timeout: 10
+countMode: false
+pulsar:
+  address: pulsar://localhost:6650
+  webAddress: localhost:80
+  maxMessageSize: 5242880
+  tenant: public
+  namespace: default
+#kafka:
+#  address: 127.0.0.1:9092
+taskPositionMode: false
+taskPositions:
+  - name: by-dev-rootcoord-dml_0
+    position: ChZieS1kZXYtcm9vdGNvb3JkLWRtbF8wEgkIcBCABhgAIAA=
+  - name: by-dev-rootcoord-dml_1
+    position: ChZieS1kZXYtcm9vdGNvb3JkLWRtbF8xEgkIdRCABhgAIAA=

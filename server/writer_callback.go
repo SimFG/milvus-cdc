@@ -100,7 +100,7 @@ func (w *WriteCallback) UpdateTaskCollectionPosition(collectionID int64, collect
 		w.log.Warn("fail to update the collection position",
 			zap.Int64("collection_id", collectionID),
 			zap.String("vchannel_name", pChannelName),
-			zap.String("position", util.Base64Encode(position)),
+			zap.String("position", util.Base64ProtoObj(position)),
 			zap.Error(err))
 		metrics.WriterFailCountVec.WithLabelValues(w.taskID, metrics.WriteFailOnUpdatePosition).Inc()
 	}

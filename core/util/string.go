@@ -64,6 +64,15 @@ func Base64Msg(msg msgstream.TsMsg) string {
 	return base64.StdEncoding.EncodeToString(msgByte.([]byte))
 }
 
+func Base64ProtoObj(obj proto.Message) string {
+	objByte, err := proto.Marshal(obj)
+	if err != nil {
+		Log.Warn("fail to marshal obj", zap.Any("obj", obj))
+		return ""
+	}
+	return base64.StdEncoding.EncodeToString(objByte)
+}
+
 func Base64MsgPosition(position *msgstream.MsgPosition) string {
 	positionByte, err := proto.Marshal(position)
 	if err != nil {

@@ -21,6 +21,7 @@ import (
 	"context"
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
 	"io"
 	"net/http"
 	"testing"
@@ -271,18 +272,10 @@ func TestGetMsgPosition(t *testing.T) {
 	log.Info("position", zap.Any("position", position), zap.Any("kp", kp))
 }
 
-//func decodePosition(pchannel, position string) (*commonpb.KeyDataPair, error) {
-//	positionBytes, err := base64.StdEncoding.DecodeString(position)
-//	if err != nil {
-//		return nil, err
-//	}
-//	msgPosition := &msgpb.MsgPosition{}
-//	err = proto.Unmarshal(positionBytes, msgPosition)
-//	if err != nil {
-//		return nil, err
-//	}
-//	return &commonpb.KeyDataPair{
-//		Key:  pchannel,
-//		Data: msgPosition.MsgID,
-//	}, nil
-//}
+func TestMapOutput(t *testing.T) {
+	m := map[string]int{
+		"a": 1,
+		"b": 2,
+	}
+	fmt.Println("current:", m)
+}
