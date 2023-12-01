@@ -28,9 +28,12 @@ import (
 	"time"
 
 	"github.com/cockroachdb/errors"
+	"github.com/golang/protobuf/proto"
+	"github.com/milvus-io/milvus-proto/go-api/v2/msgpb"
 	"github.com/milvus-io/milvus-proto/go-api/v2/schemapb"
 	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
+	"github.com/milvus-io/milvus/pkg/util/tsoutil"
 	"github.com/stretchr/testify/assert"
 	"go.uber.org/zap"
 
@@ -278,4 +281,21 @@ func TestMapOutput(t *testing.T) {
 		"b": 2,
 	}
 	fmt.Println("current:", m)
+}
+
+func TestDecodePosition(t *testing.T) {
+	position := "CjlpbjAxLWRhMTIxODgxZTNiZDUyYS1yb290Y29vcmQtZG1sXzFfNDQ2MDE3ODUyOTk3NjIxMzMxdjASDQjSgekDEKmvARgAIAAaWmluMDEtZGExMjE4ODFlM2JkNTJhLWRhdGFOb2RlLTIxLWluMDEtZGExMjE4ODFlM2JkNTJhLXJvb3Rjb29yZC1kbWxfMV80NDYwMTc4NTI5OTc2MjEzMzF2MCCBgLDCuKilmAY="
+	positionBytes, err := base64.StdEncoding.DecodeString(position)
+	if err != nil {
+		panic(err)
+	}
+	msgPosition := &msgpb.MsgPosition{}
+	err = proto.Unmarshal(positionBytes, msgPosition)
+	if err != nil {
+		panic(err)
+	}
+	log.Info("position", zap.Any("position", msgPosition))
+
+	msgTime := tsoutil.PhysicalTime(msgPosition.Timestamp)
+	log.Info("time", zap.Time("time", msgTime))
 }
