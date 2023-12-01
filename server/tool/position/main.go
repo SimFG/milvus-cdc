@@ -240,6 +240,13 @@ func GetLatestMsgInfo(ctx context.Context, config PositionConfig, pchannel strin
 func MsgCount(msgpack *msgstream.MsgPack, msgCount map[string]int) {
 	for _, msg := range msgpack.Msgs {
 		msgCount[msg.Type().String()] += 1
+		if msg.Type() == commonpb.MsgType_Insert {
+			insertMsg := msg.(*msgstream.InsertMsg)
+			msgCount["insert_count"] += int(insertMsg.GetNumRows())
+		} else if msg.Type() == commonpb.MsgType_Delete {
+			deleteMsg := msg.(*msgstream.DeleteMsg)
+			msgCount["delete_count"] += int(deleteMsg.GetNumRows())
+		}
 	}
 }
 
