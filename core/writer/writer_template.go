@@ -207,6 +207,10 @@ func (c *CDCWriterTemplate) initBuffer() {
 				for collectionID, collectionPositions := range latestPositions {
 					for pChannelName, position := range collectionPositions {
 						c.bufferUpdatePositionFunc(collectionID, collectionNames[collectionID], pChannelName, position)
+						log.Info("update position",
+							zap.Int64("collection_id", collectionID),
+							zap.String("collection_name", collectionNames[collectionID]),
+							zap.String("channel_name", pChannelName))
 					}
 				}
 			}
@@ -882,10 +886,6 @@ func (c *CDCWriterTemplate) success(collectionID int64, collectionName string, r
 	})
 	if positionFunc != nil {
 		positionFunc(collectionID, collectionName, position.ChannelName, kd)
-		log.Info("update position",
-			zap.Int64("collection_id", collectionID),
-			zap.String("collection_name", collectionName),
-			zap.String("channel_name", position.ChannelName))
 	}
 }
 

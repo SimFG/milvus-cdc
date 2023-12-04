@@ -4,6 +4,7 @@ taskPositionPrefix: cdc/task_position
 taskPositionKey: 90de65ec2d004298985a8122a77247dd/445993766148522019
 timeout: 10
 countMode: false
+messageDetail: false
 pulsar:
   address: pulsar://localhost:6650
   webAddress: localhost:80

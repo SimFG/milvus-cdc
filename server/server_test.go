@@ -299,3 +299,8 @@ func TestDecodePosition(t *testing.T) {
 	msgTime := tsoutil.PhysicalTime(msgPosition.Timestamp)
 	log.Info("time", zap.Time("time", msgTime))
 }
+
+func TestTS(t *testing.T) {
+	msgTime := tsoutil.PhysicalTime(446020481283260418)
+	log.Info("time", zap.Time("time", msgTime))
+}
