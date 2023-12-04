@@ -162,7 +162,7 @@ func GetMQMessageDetail(ctx context.Context, config PositionConfig, pchannel str
 			ChannelName: pchannel,
 			MsgID:       kd.GetData(),
 		},
-	})
+	}, true)
 	if err != nil {
 		msgStream.Close()
 		panic(err)
@@ -265,7 +265,7 @@ func GetCurrentMsgInfo(ctx context.Context, config PositionConfig, pchannel stri
 
 	err = msgStream.Seek(ctx, []*msgstream.MsgPosition{
 		currentPosition,
-	})
+	}, false)
 	if err != nil {
 		msgStream.Close()
 		panic(err)

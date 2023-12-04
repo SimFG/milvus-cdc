@@ -63,11 +63,12 @@ type ShouldReadFunc func(*pb.CollectionInfo) bool
 type MilvusCollectionReader struct {
 	DefaultReader
 
-	etcdConfig  config.MilvusEtcdConfig
-	mqConfig    config.MilvusMQConfig
-	collections []CollectionInfo
-	monitor     Monitor
-	dataChanLen int
+	etcdConfig     config.MilvusEtcdConfig
+	mqConfig       config.MilvusMQConfig
+	collections    []CollectionInfo
+	apiCollections []CollectionInfo
+	monitor        Monitor
+	dataChanLen    int
 
 	etcdCli           util.KVApi
 	factoryCreator    FactoryCreator
@@ -109,6 +110,7 @@ func NewMilvusCollectionReader(options ...config.Option[*MilvusCollectionReader]
 	reader.isQuit.Store(false)
 	log.Info("create milvus collection reader",
 		zap.Int("data_chan_len", reader.dataChanLen),
+		zap.String("api_collection", collectionInfosString(reader.apiCollections)),
 		zap.String("collection", collectionInfosString(reader.collections)))
 	return reader, nil
 }
@@ -475,7 +477,7 @@ func (reader *MilvusCollectionReader) readStreamData(info *pb.CollectionInfo, se
 	barrierManager := NewDataBarrierManager(len(vchannels), reader.sendData)
 	log.Info("read vchannels", zap.Strings("channels", vchannels))
 	for _, vchannel := range vchannels {
-		position, err := reader.collectionPosition(info, vchannel, sendCreateMsg)
+		position, includeCurrent, err := reader.collectionPosition(info, vchannel, sendCreateMsg)
 		handleError := func() {
 			reader.monitor.OnFailReadStream(info.ID, reader.collectionName(info), vchannel, err)
 			reader.isQuit.Store(true)
@@ -491,7 +493,7 @@ func (reader *MilvusCollectionReader) readStreamData(info *pb.CollectionInfo, se
 			handleError()
 			return
 		}
-		msgChan, err := reader.msgStreamChan(vchannel, position, stream)
+		msgChan, err := reader.msgStreamChan(vchannel, position, stream, includeCurrent)
 		if err != nil {
 			stream.Close()
 			log.Warn("fail to get message stream chan", zap.String("vchannel", vchannel), zap.Error(err))
@@ -503,8 +505,20 @@ func (reader *MilvusCollectionReader) readStreamData(info *pb.CollectionInfo, se
 	}
 }
 
-func (reader *MilvusCollectionReader) collectionPosition(info *pb.CollectionInfo, vchannelName string, sendCreateCollection bool) (*msgstream.MsgPosition, error) {
+func (reader *MilvusCollectionReader) collectionPosition(info *pb.CollectionInfo, vchannelName string, sendCreateCollection bool) (*msgstream.MsgPosition, bool, error) {
 	pchannel := util.ToPhysicalChannel(vchannelName)
+	for _, collection := range reader.apiCollections {
+		if collection.collectionName == reader.collectionName(info) &&
+			collection.positions != nil {
+			if pair, ok := collection.positions[pchannel]; ok {
+				log.Info("get the collection position from api collection", zap.String("vchannel", vchannelName))
+				return &msgstream.MsgPosition{
+					ChannelName: vchannelName,
+					MsgID:       pair.GetData(),
+				}, true, nil
+			}
+		}
+	}
 	for _, collection := range reader.collections {
 		if collection.collectionName == reader.collectionName(info) &&
 			collection.positions != nil {
@@ -513,15 +527,16 @@ func (reader *MilvusCollectionReader) collectionPosition(info *pb.CollectionInfo
 				return &msgstream.MsgPosition{
 					ChannelName: vchannelName,
 					MsgID:       pair.GetData(),
-				}, nil
+				}, false, nil
 			}
 		}
 	}
 	if sendCreateCollection {
 		log.Info("get the start collection position", zap.String("vchannel", vchannelName))
-		return util.GetChannelStartPosition(vchannelName, info.StartPositions)
+		p, e := util.GetChannelStartPosition(vchannelName, info.StartPositions)
+		return p, false, e
 	}
-	return nil, nil
+	return nil, false, nil
 }
 
 func (reader *MilvusCollectionReader) msgStream() (msgstream.MsgStream, error) {
@@ -540,7 +555,7 @@ func (reader *MilvusCollectionReader) msgStream() (msgstream.MsgStream, error) {
 	return stream, err
 }
 
-func (reader *MilvusCollectionReader) msgStreamChan(vchannel string, position *msgstream.MsgPosition, stream msgstream.MsgStream) (<-chan *msgstream.MsgPack, error) {
+func (reader *MilvusCollectionReader) msgStreamChan(vchannel string, position *msgstream.MsgPosition, stream msgstream.MsgStream, includeCurrentMsg bool) (<-chan *msgstream.MsgPack, error) {
 	consumeSubName := vchannel + strconv.Itoa(rand.Int())
 	pchannelName := util.ToPhysicalChannel(vchannel)
 	initialPosition := mqwrapper.SubscriptionPositionUnknown
@@ -553,7 +568,7 @@ func (reader *MilvusCollectionReader) msgStreamChan(vchannel string, position *m
 	}
 	log.Info("seek the msg position", zap.String("vchannel", vchannel), zap.String("position", util.Base64MsgPosition(position)))
 	position.ChannelName = pchannelName
-	err := stream.Seek(context.Background(), []*msgstream.MsgPosition{position})
+	err := stream.Seek(context.Background(), []*msgstream.MsgPosition{position}, includeCurrentMsg)
 	if err != nil {
 		stream.Close()
 		log.Warn("fail to seek the msg position", zap.String("vchannel", vchannel), zap.Error(err))

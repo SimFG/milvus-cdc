@@ -19,12 +19,22 @@ package reader
 import (
 	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
 	"github.com/milvus-io/milvus/pkg/mq/msgstream/mqwrapper"
+
 	"github.com/zilliztech/milvus-cdc/core/config"
 )
 
 func CollectionInfoOption(collectionName string, positions map[string]*commonpb.KeyDataPair) config.Option[*MilvusCollectionReader] {
 	return config.OptionFunc[*MilvusCollectionReader](func(object *MilvusCollectionReader) {
 		object.collections = append(object.collections, CollectionInfo{
+			collectionName: collectionName,
+			positions:      positions,
+		})
+	})
+}
+
+func APICollectionInfoOption(collectionName string, positions map[string]*commonpb.KeyDataPair) config.Option[*MilvusCollectionReader] {
+	return config.OptionFunc[*MilvusCollectionReader](func(object *MilvusCollectionReader) {
+		object.apiCollections = append(object.apiCollections, CollectionInfo{
 			collectionName: collectionName,
 			positions:      positions,
 		})

@@ -156,8 +156,9 @@ require (
 replace (
 	github.com/apache/pulsar-client-go => github.com/milvus-io/pulsar-client-go v0.6.10
 	github.com/milvus-io/milvus-sdk-go/v2 => github.com/SimFG/milvus-sdk-go/v2 v2.0.0-20231129162748-8b794f7fe148
-	//github.com/milvus-io/milvus/pkg => github.com/SimFG/milvus/pkg v0.0.0-20230915085959-b1bd79e12920
+	github.com/milvus-io/milvus/pkg => github.com/SimFG/milvus/pkg v0.0.0-20231204113248-636961fc7163
 	//github.com/milvus-io/milvus-sdk-go/v2 => ../../milvus-sdk-go
+	//github.com/milvus-io/milvus/pkg => ../../milvus/pkg
 	github.com/streamnative/pulsarctl => github.com/xiaofan-luan/pulsarctl v0.5.1
 	github.com/tecbot/gorocksdb => ./../rocksdb
 	github.com/zilliztech/milvus-cdc/core => ../core

@@ -427,6 +427,7 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string
 			taskPosition[position.CollectionName] = position.Positions
 		}
 
+		apiTaskPosition := make(map[string]map[string]*commonpb.KeyDataPair)
 		if collectionPositions != nil {
 			for s, infos := range collectionPositions {
 				for _, channelInfo := range infos {
@@ -435,10 +436,10 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string
 						taskLog.Warn("fail to decode the task collection position", zap.Error(err))
 						return nil, err
 					}
-					taskCollectionPositions, ok := taskPosition[s]
+					taskCollectionPositions, ok := apiTaskPosition[s]
 					if !ok {
 						taskCollectionPositions = make(map[string]*commonpb.KeyDataPair)
-						taskPosition[s] = taskCollectionPositions
+						apiTaskPosition[s] = taskCollectionPositions
 					}
 					taskCollectionPositions[channelInfo.Name] = inputPosition
 				}
@@ -448,6 +449,9 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string
 		var options []config.Option[*cdcreader.MilvusCollectionReader]
 		for s, m := range taskPosition {
 			options = append(options, cdcreader.CollectionInfoOption(s, m))
+		}
+		for s, m := range apiTaskPosition {
+			options = append(options, cdcreader.APICollectionInfoOption(s, m))
 		}
 		monitor := NewReaderMonitor(info.TaskID)
 		etcdConfig := config.NewMilvusEtcdConfig(config.MilvusEtcdEndpointsOption(sourceConfig.EtcdAddress),
