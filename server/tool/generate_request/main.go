@@ -17,8 +17,10 @@ import (
 var curlTemplate = `
 curl -X POST http://localhost:8444/cdc \
 -H "Content-Type: application/json" \
--d '{{.Data}}
-'
+-d '{
+  "request_type": "create",
+  "request_data": {{.Data}}
+}'
 `
 
 type D struct {
