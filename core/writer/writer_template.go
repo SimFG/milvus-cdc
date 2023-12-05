@@ -679,7 +679,6 @@ func (c *CDCWriterTemplate) periodFlush() {
 		ticker := time.NewTicker(c.bufferConfig.Period)
 		for {
 			<-ticker.C
-			log.Info("tick...")
 			c.Flush(context.Background())
 		}
 	}()

@@ -9,3 +9,7 @@ build-position:
 build-meta-position:
 	@echo "Building Meta Position ..."
 	@go build -o ../bin/cdc-meta-position tool/meta/main.go
+
+build-generate-request:
+	@echo "Building Generate Request ..."
+	@go build -o ../bin/cdc-generate-request tool/generate_request/main.go

@@ -1,0 +1,10 @@
+milvus_connect_param:
+  host: localhost
+  port: 19530
+  username: root
+  password: 123456
+  enable_tls: false
+  connect_timeout: 10
+#buffer_config:
+#  period: 10
+#  size: 10
