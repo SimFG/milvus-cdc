@@ -40,7 +40,6 @@ func main() {
 		Syncer: zapcore.AddSync(ioutil.Discard),
 		Level:  zap.NewAtomicLevel(),
 	})
-	go collectionPPROF()
 
 	s := &server.CDCServer{}
 
@@ -51,12 +50,15 @@ func main() {
 	if err != nil {
 		util.Log.Panic("Failed to parse config file", zap.Error(err))
 	}
+	if serverConfig.Pprof {
+		go collectionPPROF(serverConfig.PprofInterval)
+	}
 	s.Run(&serverConfig)
 }
 
-func collectionPPROF() {
-	interval := time.Second
-	ticker := time.NewTicker(interval)
+func collectionPPROF(interval int) {
+	t := time.Duration(interval) * time.Second
+	ticker := time.NewTicker(t)
 	defer ticker.Stop()
 
 	for range ticker.C {

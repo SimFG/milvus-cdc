@@ -30,6 +30,8 @@ type CDCServerConfig struct {
 	ReverseMilvus   model.MilvusConnectParam
 	CurrentMilvus   model.MilvusConnectParam
 	MaxNameLength   int
+	Pprof           bool
+	PprofInterval   int
 }
 
 type CDCMetaStoreConfig struct {
