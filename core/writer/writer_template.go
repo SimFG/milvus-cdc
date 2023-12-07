@@ -74,6 +74,8 @@ type CDCWriterTemplate struct {
 
 	collectionTimeTickPositions map[int64]map[string]*commonpb.KeyDataPair
 	collectionNames             map[int64]string
+
+	hasInsertMsg bool
 }
 
 // NewCDCWriterTemplate options must include HandlerOption
@@ -762,6 +764,7 @@ func (c *CDCWriterTemplate) handleInsert(ctx context.Context, data *model.CDCDat
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
+	c.hasInsertMsg = true
 	c.currentBufferSize += totalSize
 	c.bufferData = append(c.bufferData, lo.T2(data, callback))
 	c.checkBufferSize()
@@ -773,6 +776,9 @@ func (c *CDCWriterTemplate) handleDelete(ctx context.Context, data *model.CDCDat
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
+	if c.hasInsertMsg {
+		c.clearBufferFunc()
+	}
 	c.currentBufferSize += totalSize
 	c.bufferData = append(c.bufferData, lo.T2(data, callback))
 	c.checkBufferSize()
@@ -900,6 +906,7 @@ func (c *CDCWriterTemplate) clearBufferFunc() {
 	c.bufferDataChan <- c.bufferData[:]
 	c.bufferData = []lo.Tuple2[*model.CDCData, WriteCallback]{}
 	c.currentBufferSize = 0
+	c.hasInsertMsg = false
 }
 
 func (c *CDCWriterTemplate) isSupportType(fieldType entity.FieldType) bool {
