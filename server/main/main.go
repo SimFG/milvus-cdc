@@ -17,8 +17,11 @@
 package main
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"runtime/pprof"
+	"time"
 
 	"github.com/milvus-io/milvus/pkg/log"
 	"github.com/milvus-io/milvus/pkg/util/paramtable"
@@ -37,6 +40,7 @@ func main() {
 		Syncer: zapcore.AddSync(ioutil.Discard),
 		Level:  zap.NewAtomicLevel(),
 	})
+	go collectionPPROF()
 
 	s := &server.CDCServer{}
 
@@ -48,4 +52,30 @@ func main() {
 		util.Log.Panic("Failed to parse config file", zap.Error(err))
 	}
 	s.Run(&serverConfig)
+}
+
+func collectionPPROF() {
+	interval := time.Second
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		allocsFile, err := os.Create(fmt.Sprintf("pprof_allocs_%s.profile", time.Now().String()))
+		if err != nil {
+			util.Log.Info("fail to create data")
+			return
+		}
+		pprof.Lookup("allocs").WriteTo(allocsFile, 0)
+		allocsFile.Close()
+
+		heapFile, err := os.Create(fmt.Sprintf("pprof_heap_%s.profile", time.Now().String()))
+		if err != nil {
+			util.Log.Info("fail to create data")
+			return
+		}
+		pprof.Lookup("heap").WriteTo(heapFile, 0)
+		heapFile.Close()
+
+		util.Log.Info("success to collect pprof data")
+	}
 }
