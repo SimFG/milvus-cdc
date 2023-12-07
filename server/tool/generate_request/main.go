@@ -80,6 +80,7 @@ func templateOutput(createRequest request.CreateRequest) {
 	tmpl = tmpl.Funcs(template.FuncMap{
 		"unescape": html.UnescapeString,
 	})
+	fmt.Println("#!/bin/bash")
 
 	err = tmpl.Execute(os.Stdout, D{
 		Data: createStr,

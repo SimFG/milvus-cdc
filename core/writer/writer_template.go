@@ -753,11 +753,12 @@ func (c *CDCWriterTemplate) handleDropCollection(ctx context.Context, data *mode
 
 func (c *CDCWriterTemplate) handleInsert(ctx context.Context, data *model.CDCData, callback WriteCallback) {
 	msg := data.Msg.(*msgstream.InsertMsg)
-	totalSize := SizeOfInsertMsg(msg)
-	if totalSize < 0 {
-		c.fail("fail to get the data size", errors.New("invalid column type"), data, callback)
-		return
-	}
+	totalSize := int64(msg.Size())
+	log.Info("insert msg", zap.Int64("size", totalSize))
+	//if totalSize < 0 {
+	//	c.fail("fail to get the data size", errors.New("invalid column type"), data, callback)
+	//	return
+	//}
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
@@ -768,7 +769,7 @@ func (c *CDCWriterTemplate) handleInsert(ctx context.Context, data *model.CDCDat
 
 func (c *CDCWriterTemplate) handleDelete(ctx context.Context, data *model.CDCData, callback WriteCallback) {
 	msg := data.Msg.(*msgstream.DeleteMsg)
-	totalSize := SizeOfDeleteMsg(msg)
+	totalSize := int64(msg.Size())
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
