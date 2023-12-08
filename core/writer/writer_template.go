@@ -226,7 +226,6 @@ func (c *CDCWriterTemplate) initBuffer() {
 					case *DropDataBaseParam:
 						err = c.handler.DropDatabase(ctx, p)
 					default:
-						log.Warn("invalid param", zap.Any("data", combineData))
 						continue
 					}
 					if err != nil {
@@ -796,9 +795,9 @@ func (c *CDCWriterTemplate) handleInsert(ctx context.Context, data *model.CDCDat
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
-	//if c.hasDeleteMsg {
-	//	c.clearBufferFunc()
-	//}
+	if c.hasDeleteMsg {
+		c.clearBufferFunc()
+	}
 	c.hasInsertMsg = true
 	c.currentBufferSize += totalSize
 	c.bufferData = append(c.bufferData, lo.T2(data, callback))
@@ -811,9 +810,9 @@ func (c *CDCWriterTemplate) handleDelete(ctx context.Context, data *model.CDCDat
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
-	//if c.hasInsertMsg {
-	//	c.clearBufferFunc()
-	//}
+	if c.hasInsertMsg {
+		c.clearBufferFunc()
+	}
 	c.hasDeleteMsg = true
 	c.currentBufferSize += totalSize
 	c.bufferData = append(c.bufferData, lo.T2(data, callback))
