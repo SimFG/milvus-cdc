@@ -76,6 +76,7 @@ type CDCWriterTemplate struct {
 	collectionNames             map[int64]string
 
 	hasInsertMsg bool
+	hasDeleteMsg bool
 }
 
 // NewCDCWriterTemplate options must include HandlerOption
@@ -168,9 +169,40 @@ func (c *CDCWriterTemplate) initBuffer() {
 				}
 			}
 
+			params := make([][]*CombineData, 10, 10)
 			ctx := context.Background()
 			for _, combineDatas := range combineDataMap {
 				for _, combineData := range combineDatas {
+					switch combineData.param.(type) {
+					case *InsertParam:
+						params[0] = append(params[0], combineData)
+					case *CreateIndexParam:
+						params[1] = append(params[1], combineData)
+					case *LoadCollectionParam:
+						params[2] = append(params[2], combineData)
+					case *CreateDataBaseParam:
+						params[3] = append(params[3], combineData)
+					case *ReleaseCollectionParam:
+						params[4] = append(params[4], combineData)
+					case *DropIndexParam:
+						params[5] = append(params[5], combineData)
+					case *DeleteParam:
+						params[6] = append(params[6], combineData)
+					case *DropPartitionParam:
+						params[7] = append(params[7], combineData)
+					case *DropCollectionParam:
+						params[8] = append(params[8], combineData)
+					case *DropDataBaseParam:
+						params[9] = append(params[9], combineData)
+					default:
+						log.Warn("invalid param", zap.Any("data", combineData))
+						continue
+					}
+				}
+			}
+
+			for _, ps := range params {
+				for _, combineData := range ps {
 					var err error
 					switch p := combineData.param.(type) {
 					case *InsertParam:
@@ -764,6 +796,9 @@ func (c *CDCWriterTemplate) handleInsert(ctx context.Context, data *model.CDCDat
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
+	//if c.hasDeleteMsg {
+	//	c.clearBufferFunc()
+	//}
 	c.hasInsertMsg = true
 	c.currentBufferSize += totalSize
 	c.bufferData = append(c.bufferData, lo.T2(data, callback))
@@ -776,9 +811,10 @@ func (c *CDCWriterTemplate) handleDelete(ctx context.Context, data *model.CDCDat
 
 	c.bufferLock.Lock()
 	defer c.bufferLock.Unlock()
-	if c.hasInsertMsg {
-		c.clearBufferFunc()
-	}
+	//if c.hasInsertMsg {
+	//	c.clearBufferFunc()
+	//}
+	c.hasDeleteMsg = true
 	c.currentBufferSize += totalSize
 	c.bufferData = append(c.bufferData, lo.T2(data, callback))
 	c.checkBufferSize()
@@ -907,6 +943,7 @@ func (c *CDCWriterTemplate) clearBufferFunc() {
 	c.bufferData = []lo.Tuple2[*model.CDCData, WriteCallback]{}
 	c.currentBufferSize = 0
 	c.hasInsertMsg = false
+	c.hasDeleteMsg = false
 }
 
 func (c *CDCWriterTemplate) isSupportType(fieldType entity.FieldType) bool {
