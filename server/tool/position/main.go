@@ -9,6 +9,7 @@ import (
 	"math/rand"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/goccy/go-json"
@@ -36,10 +37,11 @@ type PositionConfig struct {
 	EtcdAddress        []string
 	TaskPositionPrefix string
 	TaskPositionKey    string
+	PkFieldName        string
 	Timeout            int
 	CountMode          bool
 	TaskPositionMode   bool
-	MessageDetail      bool
+	MessageDetail      int
 	Pulsar             config.PulsarConfig
 	Kafka              config.KafkaConfig
 	TaskPositions      []model.ChannelInfo
@@ -179,11 +181,11 @@ func GetMQMessageDetail(ctx context.Context, config PositionConfig, pchannel str
 		fmt.Println("msg time:", msgTime)
 		fmt.Println("end position:", util.Base64MsgPosition(end))
 		currentMsgCount := make(map[string]int)
-		MsgCount(msgpack, currentMsgCount, config.MessageDetail)
+		MsgCount(msgpack, currentMsgCount, config.MessageDetail, config.PkFieldName)
 		fmt.Println("msg info, count:", currentMsgCount)
 		if config.CountMode {
 			msgCount := make(map[string]int)
-			MsgCount(msgpack, msgCount, config.MessageDetail)
+			MsgCount(msgpack, msgCount, config.MessageDetail, config.PkFieldName)
 			MsgCountForStream(ctx, msgStream, config, pchannel, msgCount)
 		}
 
@@ -214,7 +216,7 @@ func MsgCountForStream(ctx context.Context, msgStream msgstream.MsgStream, confi
 				fmt.Println("less or equal err, current count:", msgCount)
 				panic(err)
 			}
-			MsgCount(msgpack, msgCount, config.MessageDetail)
+			MsgCount(msgpack, msgCount, config.MessageDetail, config.PkFieldName)
 			if ok {
 				fmt.Println("has count the latest msg, current count:", msgCount)
 				return
@@ -285,37 +287,69 @@ func GetCurrentMsgInfo(ctx context.Context, config PositionConfig, pchannel stri
 		fmt.Println("current msg time:", msgTime)
 		fmt.Println("current end position:", util.Base64MsgPosition(end))
 		currentMsgCount := make(map[string]int)
-		MsgCount(msgpack, currentMsgCount, config.MessageDetail)
+		MsgCount(msgpack, currentMsgCount, config.MessageDetail, config.PkFieldName)
 		fmt.Println("current msg info, count:", currentMsgCount)
 	}
 }
 
-func MsgCount(msgpack *msgstream.MsgPack, msgCount map[string]int, detail bool) {
+func MsgCount(msgpack *msgstream.MsgPack, msgCount map[string]int, detail int, pk string) {
 	for _, msg := range msgpack.Msgs {
 		msgCount[msg.Type().String()] += 1
 		if msg.Type() == commonpb.MsgType_Insert {
 			insertMsg := msg.(*msgstream.InsertMsg)
-			if detail {
+			if detail > 0 {
 				var times []time.Time
 				for _, timestamp := range insertMsg.Timestamps {
 					times = append(times, tsoutil.PhysicalTime(timestamp))
 				}
-				fmt.Println("insert msg info, rows:", insertMsg.RowIDs, ", timestamps:", times)
+				pkString := ""
+				for _, data := range insertMsg.GetFieldsData() {
+					if data.GetFieldName() == pk {
+						if data.GetScalars().GetLongData() != nil {
+							pkString = fmt.Sprintf("[\"insert pks\"] [pks=\"[%s]\"]", GetArrayString(data.GetScalars().GetLongData().GetData()))
+						} else if data.GetScalars().GetStringData() != nil {
+							pkString = fmt.Sprintf("[\"insert pks\"] [pks=\"[%s]\"]", strings.Join(data.GetScalars().GetStringData().GetData(), ","))
+						} else {
+							pkString = "[\"insert pks\"] [pks=\"[]\"], not found"
+						}
+						break
+					}
+				}
+				fmt.Println(pkString, ", timestamps:", times)
 			}
 			msgCount["insert_count"] += int(insertMsg.GetNumRows())
 		} else if msg.Type() == commonpb.MsgType_Delete {
 			deleteMsg := msg.(*msgstream.DeleteMsg)
 			msgCount["delete_count"] += int(deleteMsg.GetNumRows())
+			if detail > 0 {
+				var times []time.Time
+				for _, timestamp := range deleteMsg.Timestamps {
+					times = append(times, tsoutil.PhysicalTime(timestamp))
+				}
+				if deleteMsg.GetPrimaryKeys().GetIntId() != nil {
+					fmt.Println(fmt.Sprintf("[\"delete pks\"] [pks=\"[%s]\"]", GetArrayString(deleteMsg.GetPrimaryKeys().GetIntId().GetData())), ", timestamps:", times)
+				} else if deleteMsg.GetPrimaryKeys().GetStrId() != nil {
+					fmt.Println(fmt.Sprintf("[\"delete pks\"] [pks=\"[%s]\"]", strings.Join(deleteMsg.GetPrimaryKeys().GetStrId().GetData(), ",")), ", timestamps:", times)
+				}
+			}
 		} else if msg.Type() == commonpb.MsgType_TimeTick {
-			if detail {
+			if detail > 1 {
 				timeTickMsg := msg.(*msgstream.TimeTickMsg)
 				fmt.Println("time tick msg info, ts:", tsoutil.PhysicalTime(timeTickMsg.EndTimestamp))
 			}
 		}
 	}
-	if detail {
+	if detail > 1 {
 		fmt.Println("msg count, end position:", util.Base64MsgPosition(msgpack.EndPositions[0]), ", endts:", tsoutil.PhysicalTime(msgpack.EndTs))
 	}
+}
+
+func GetArrayString(n []int64) string {
+	s := make([]string, len(n))
+	for i, v := range n {
+		s[i] = strconv.FormatInt(v, 10)
+	}
+	return strings.Join(s, ",")
 }
 
 func MsgStream(config PositionConfig, isTTStream bool) msgstream.MsgStream {

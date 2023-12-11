@@ -67,12 +67,19 @@ func (d *DataHandlerWrapper) DropCollection(ctx context.Context, param *writer.D
 func (d *DataHandlerWrapper) Insert(ctx context.Context, param *writer.InsertParam) (err error) {
 	defer func() {
 		d.metric(param.CollectionName, "Insert", err != nil)
-		log.Info("insert done",
+		logInfos := []zap.Field{
 			zap.String("collection_name", param.CollectionName),
 			zap.String("partition_name", param.PartitionName),
 			zap.Int("data_count", GetDataLen(param.Columns)),
 			zap.String("task_id", d.taskID),
-			zap.Error(err))
+			zap.Error(err),
+		}
+		for _, column := range param.Columns {
+			if p, ok := column.(*entity.ColumnInt64); ok {
+				logInfos = append(logInfos, zap.Int64s(p.Name(), p.Data()))
+			}
+		}
+		log.Info("insert done", logInfos...)
 	}()
 	err = d.handler.Insert(ctx, param)
 	return
@@ -88,11 +95,20 @@ func GetDataLen(columns []entity.Column) int {
 func (d *DataHandlerWrapper) Delete(ctx context.Context, param *writer.DeleteParam) (err error) {
 	defer func() {
 		d.metric(param.CollectionName, "Delete", err != nil)
+		pks := zap.String("empty", "unknown")
+		if p, ok := param.Column.(*entity.ColumnInt64); ok {
+			pks = zap.Int64s("pks", p.Data())
+		}
+		if p, ok := param.Column.(*entity.ColumnVarChar); ok {
+			pks = zap.Strings("pks", p.Data())
+		}
+
 		log.Info("delete done",
 			zap.String("collection_name", param.CollectionName),
 			zap.String("partition_name", param.PartitionName),
 			zap.Int("data_count", param.Column.Len()),
 			zap.String("task_id", d.taskID),
+			pks,
 			zap.Error(err))
 	}()
 	err = d.handler.Delete(ctx, param)

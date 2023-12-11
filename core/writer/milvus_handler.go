@@ -97,12 +97,6 @@ func (m *MilvusDataHandler) Insert(ctx context.Context, param *InsertParam) erro
 		partitionName = ""
 	}
 	_, err := m.milvus.Insert(ctx, param.CollectionName, partitionName, param.Columns...)
-	for _, c := range param.Columns {
-		if c.Type() == entity.FieldTypeInt64 {
-			log.Info("insert pks", zap.Int64s("pks", c.(*entity.ColumnInt64).Data()))
-			break
-		}
-	}
 	return err
 }
 
@@ -112,9 +106,7 @@ func (m *MilvusDataHandler) Delete(ctx context.Context, param *DeleteParam) erro
 		partitionName = ""
 	}
 
-	err := m.milvus.DeleteByPks(ctx, param.CollectionName, partitionName, param.Column)
-	log.Info("delete pks", zap.Int64s("pks", param.Column.(*entity.ColumnInt64).Data()))
-	return err
+	return m.milvus.DeleteByPks(ctx, param.CollectionName, partitionName, param.Column)
 }
 
 func (m *MilvusDataHandler) CreatePartition(ctx context.Context, param *CreatePartitionParam) error {
