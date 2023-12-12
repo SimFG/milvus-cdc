@@ -26,10 +26,11 @@ import (
 
 	"github.com/mitchellh/mapstructure"
 	"github.com/samber/lo"
+	"go.uber.org/zap"
+
 	cdcerror "github.com/zilliztech/milvus-cdc/server/error"
 	"github.com/zilliztech/milvus-cdc/server/metrics"
 	modelrequest "github.com/zilliztech/milvus-cdc/server/model/request"
-	"go.uber.org/zap"
 )
 
 type CDCServer struct {

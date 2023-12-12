@@ -17,9 +17,24 @@
 package server
 
 import (
+	"fmt"
+
+	"go.uber.org/zap"
+
 	"github.com/zilliztech/milvus-cdc/core/util"
+	"github.com/zilliztech/milvus-cdc/server/tag"
 )
 
 var (
 	log = util.Log
 )
+
+func LogInfo() {
+	log.Info("base info", zap.String("BuildTime", tag.BuildTime), zap.String("GitCommit", tag.GitCommit), zap.String("GoVersion", tag.GoVersion))
+}
+
+func PrintInfo() {
+	fmt.Println("# Build time:", tag.BuildTime)
+	fmt.Println("# Git commit:", tag.GitCommit)
+	fmt.Println("# Go version:", tag.GoVersion)
+}

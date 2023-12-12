@@ -29,6 +29,7 @@ import (
 	"github.com/zilliztech/milvus-cdc/core/config"
 	"github.com/zilliztech/milvus-cdc/core/reader"
 	"github.com/zilliztech/milvus-cdc/core/util"
+	"github.com/zilliztech/milvus-cdc/server"
 	"github.com/zilliztech/milvus-cdc/server/model"
 	"github.com/zilliztech/milvus-cdc/server/model/meta"
 )
@@ -54,6 +55,7 @@ func main() {
 		Syncer: zapcore.AddSync(ioutil.Discard),
 		Level:  zap.NewAtomicLevel(),
 	})
+	server.PrintInfo()
 
 	fileContent, err := os.ReadFile("./configs/position.yaml")
 	if err != nil {

@@ -41,6 +41,8 @@ func main() {
 		Level:  zap.NewAtomicLevel(),
 	})
 
+	server.LogInfo()
+
 	s := &server.CDCServer{}
 
 	// parse config file

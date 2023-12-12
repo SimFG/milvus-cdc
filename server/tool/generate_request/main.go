@@ -10,6 +10,7 @@ import (
 
 	"sigs.k8s.io/yaml"
 
+	"github.com/zilliztech/milvus-cdc/server"
 	"github.com/zilliztech/milvus-cdc/server/model"
 	"github.com/zilliztech/milvus-cdc/server/model/request"
 )
@@ -28,6 +29,9 @@ type D struct {
 }
 
 func main() {
+	fmt.Println("#!/bin/bash")
+	server.PrintInfo()
+
 	jsonPath := "./configs/generate_request.json"
 	jsonData, err := ioutil.ReadFile(jsonPath)
 	if err != nil {
@@ -80,7 +84,6 @@ func templateOutput(createRequest request.CreateRequest) {
 	tmpl = tmpl.Funcs(template.FuncMap{
 		"unescape": html.UnescapeString,
 	})
-	fmt.Println("#!/bin/bash")
 
 	err = tmpl.Execute(os.Stdout, D{
 		Data: createStr,

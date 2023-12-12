@@ -17,6 +17,7 @@ import (
 	"sigs.k8s.io/yaml"
 
 	"github.com/zilliztech/milvus-cdc/core/util"
+	"github.com/zilliztech/milvus-cdc/server"
 	"github.com/zilliztech/milvus-cdc/server/model/meta"
 )
 
@@ -34,6 +35,7 @@ func main() {
 		Syncer: zapcore.AddSync(ioutil.Discard),
 		Level:  zap.NewAtomicLevel(),
 	})
+	server.PrintInfo()
 
 	fileContent, err := os.ReadFile("./configs/meta.yaml")
 	if err != nil {
