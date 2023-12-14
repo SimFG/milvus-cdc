@@ -34,12 +34,12 @@ import (
 )
 
 func main() {
-	paramtable.Init()
 	log.ReplaceGlobals(zap.NewNop(), &log.ZapProperties{
 		Core:   zapcore.NewNopCore(),
 		Syncer: zapcore.AddSync(ioutil.Discard),
 		Level:  zap.NewAtomicLevel(),
 	})
+	paramtable.Init()
 
 	server.LogInfo()
 

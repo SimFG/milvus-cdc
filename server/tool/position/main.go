@@ -68,7 +68,7 @@ func main() {
 	}
 
 	if positionConfig.TaskPositionMode {
-		fmt.Println("task position mode")
+		markPrintln("task position mode")
 		timeoutCtx, cancelFunc := context.WithTimeout(context.Background(), time.Duration(positionConfig.Timeout)*time.Second)
 		defer cancelFunc()
 
@@ -104,7 +104,7 @@ func main() {
 	}
 	for _, kv := range getResp.Kvs {
 		GetCollectionPositionDetail(timeoutCtx, positionConfig, kv.Value)
-		fmt.Println("++++++++++++++++++++++++++")
+		markPrintln("++++++++++++++++++++++++++")
 	}
 }
 
@@ -130,10 +130,10 @@ func GetCollectionPositionDetail(ctx context.Context, config PositionConfig, v [
 	if err != nil {
 		panic(err)
 	}
-	fmt.Println("task id:", taskPosition.TaskID)
-	fmt.Println("collection id:", taskPosition.CollectionID)
-	fmt.Println("collection name:", taskPosition.CollectionName)
-	fmt.Println("====================")
+	markPrintln("task id:", taskPosition.TaskID)
+	markPrintln("collection id:", taskPosition.CollectionID)
+	markPrintln("collection name:", taskPosition.CollectionName)
+	markPrintln("====================")
 	for s, pair := range taskPosition.Positions {
 		GetMQMessageDetail(ctx, config, s, pair)
 	}
@@ -141,7 +141,7 @@ func GetCollectionPositionDetail(ctx context.Context, config PositionConfig, v [
 
 func GetMQMessageDetail(ctx context.Context, config PositionConfig, pchannel string, kd *commonpb.KeyDataPair) {
 	//if config.IncludeCurrent {
-	//	fmt.Println("include current position")
+	//	markPrintln("include current position")
 	//	GetCurrentMsgInfo(ctx, config, pchannel, &msgstream.MsgPosition{
 	//		ChannelName: pchannel,
 	//		MsgID:       kd.GetData(),
@@ -174,24 +174,24 @@ func GetMQMessageDetail(ctx context.Context, config PositionConfig, pchannel str
 
 	select {
 	case <-ctx.Done():
-		fmt.Println(ctx.Err())
+		markPrintln(ctx.Err())
 	case msgpack := <-msgStream.Chan():
 		endTs := msgpack.EndTs
 		end := msgpack.EndPositions[0]
 		msgTime := tsoutil.PhysicalTime(endTs)
-		fmt.Println("channel name:", pchannel)
-		fmt.Println("msg time:", msgTime)
-		fmt.Println("end position:", util.Base64MsgPosition(end))
+		markPrintln("channel name:", pchannel)
+		markPrintln("msg time:", msgTime)
+		markPrintln("end position:", util.Base64MsgPosition(end))
 		currentMsgCount := make(map[string]int)
 		MsgCount(msgpack, currentMsgCount, config.MessageDetail, config.PkFieldName)
-		fmt.Println("msg info, count:", currentMsgCount)
+		markPrintln("msg info, count:", currentMsgCount)
 		if config.CountMode {
 			msgCount := make(map[string]int)
 			MsgCount(msgpack, msgCount, config.MessageDetail, config.PkFieldName)
 			MsgCountForStream(ctx, msgStream, config, pchannel, msgCount)
 		}
 
-		fmt.Println("====================")
+		markPrintln("====================")
 	}
 }
 
@@ -201,26 +201,26 @@ func MsgCountForStream(ctx context.Context, msgStream msgstream.MsgStream, confi
 	latestMsgID, err := msgStream.GetLatestMsgID(pchannel)
 	if err != nil {
 		msgStream.Close()
-		fmt.Println("current count:", msgCount)
+		markPrintln("current count:", msgCount)
 		panic(err)
 	}
 	for {
 		select {
 		case <-ctx.Done():
-			fmt.Println("count timeout, err: ", ctx.Err())
-			fmt.Println("current count:", msgCount)
+			markPrintln("count timeout, err: ", ctx.Err())
+			markPrintln("current count:", msgCount)
 			return
 		case msgpack := <-msgStream.Chan():
 			end := msgpack.EndPositions[0]
 			ok, err := latestMsgID.LessOrEqualThan(end.GetMsgID())
 			if err != nil {
 				msgStream.Close()
-				fmt.Println("less or equal err, current count:", msgCount)
+				markPrintln("less or equal err, current count:", msgCount)
 				panic(err)
 			}
 			MsgCount(msgpack, msgCount, config.MessageDetail, config.PkFieldName)
 			if ok {
-				fmt.Println("has count the latest msg, current count:", msgCount)
+				markPrintln("has count the latest msg, current count:", msgCount)
 				return
 			}
 		}
@@ -244,14 +244,14 @@ func GetLatestMsgInfo(ctx context.Context, config PositionConfig, pchannel strin
 
 	select {
 	case <-timeoutCtx.Done():
-		fmt.Println("get latest msg info timeout, err: ", timeoutCtx.Err())
+		markPrintln("get latest msg info timeout, err: ", timeoutCtx.Err())
 	case msgpack := <-msgStream.Chan():
 		endTs := msgpack.EndTs
 		end := msgpack.EndPositions[0]
 		msgTime := tsoutil.PhysicalTime(endTs)
-		fmt.Println("latest channel name:", pchannel)
-		fmt.Println("latest msg time:", msgTime)
-		fmt.Println("latest end position:", util.Base64MsgPosition(end))
+		markPrintln("latest channel name:", pchannel)
+		markPrintln("latest msg time:", msgTime)
+		markPrintln("latest end position:", util.Base64MsgPosition(end))
 	}
 }
 
@@ -280,17 +280,17 @@ func GetCurrentMsgInfo(ctx context.Context, config PositionConfig, pchannel stri
 
 	select {
 	case <-timeoutCtx.Done():
-		fmt.Println("get current msg info timeout, err: ", timeoutCtx.Err())
+		markPrintln("get current msg info timeout, err: ", timeoutCtx.Err())
 	case msgpack := <-msgStream.Chan():
 		endTs := msgpack.EndTs
 		end := msgpack.EndPositions[0]
 		msgTime := tsoutil.PhysicalTime(endTs)
-		fmt.Println("current channel name:", pchannel)
-		fmt.Println("current msg time:", msgTime)
-		fmt.Println("current end position:", util.Base64MsgPosition(end))
+		markPrintln("current channel name:", pchannel)
+		markPrintln("current msg time:", msgTime)
+		markPrintln("current end position:", util.Base64MsgPosition(end))
 		currentMsgCount := make(map[string]int)
 		MsgCount(msgpack, currentMsgCount, config.MessageDetail, config.PkFieldName)
-		fmt.Println("current msg info, count:", currentMsgCount)
+		markPrintln("current msg info, count:", currentMsgCount)
 	}
 }
 
@@ -317,7 +317,7 @@ func MsgCount(msgpack *msgstream.MsgPack, msgCount map[string]int, detail int, p
 						break
 					}
 				}
-				fmt.Println(pkString, ", timestamps:", times)
+				markPrintln(pkString, ", timestamps:", times)
 			}
 			msgCount["insert_count"] += int(insertMsg.GetNumRows())
 		} else if msg.Type() == commonpb.MsgType_Delete {
@@ -329,20 +329,20 @@ func MsgCount(msgpack *msgstream.MsgPack, msgCount map[string]int, detail int, p
 					times = append(times, tsoutil.PhysicalTime(timestamp))
 				}
 				if deleteMsg.GetPrimaryKeys().GetIntId() != nil {
-					fmt.Println(fmt.Sprintf("[\"delete pks\"] [pks=\"[%s]\"]", GetArrayString(deleteMsg.GetPrimaryKeys().GetIntId().GetData())), ", timestamps:", times)
+					markPrintln(fmt.Sprintf("[\"delete pks\"] [pks=\"[%s]\"]", GetArrayString(deleteMsg.GetPrimaryKeys().GetIntId().GetData())), ", timestamps:", times)
 				} else if deleteMsg.GetPrimaryKeys().GetStrId() != nil {
-					fmt.Println(fmt.Sprintf("[\"delete pks\"] [pks=\"[%s]\"]", strings.Join(deleteMsg.GetPrimaryKeys().GetStrId().GetData(), ",")), ", timestamps:", times)
+					markPrintln(fmt.Sprintf("[\"delete pks\"] [pks=\"[%s]\"]", strings.Join(deleteMsg.GetPrimaryKeys().GetStrId().GetData(), ",")), ", timestamps:", times)
 				}
 			}
 		} else if msg.Type() == commonpb.MsgType_TimeTick {
 			if detail > 1 {
 				timeTickMsg := msg.(*msgstream.TimeTickMsg)
-				fmt.Println("time tick msg info, ts:", tsoutil.PhysicalTime(timeTickMsg.EndTimestamp))
+				markPrintln("time tick msg info, ts:", tsoutil.PhysicalTime(timeTickMsg.EndTimestamp))
 			}
 		}
 	}
 	if detail > 1 {
-		fmt.Println("msg count, end position:", util.Base64MsgPosition(msgpack.EndPositions[0]), ", endts:", tsoutil.PhysicalTime(msgpack.EndTs))
+		markPrintln("msg count, end position:", util.Base64MsgPosition(msgpack.EndPositions[0]), ", endts:", tsoutil.PhysicalTime(msgpack.EndTs))
 	}
 }
 
@@ -377,4 +377,9 @@ func MsgStream(config PositionConfig, isTTStream bool) msgstream.MsgStream {
 		panic(err)
 	}
 	return stream
+}
+
+func markPrintln(a ...any) {
+	a = append(a, "cdc-position-mark")
+	fmt.Println(a...)
 }
