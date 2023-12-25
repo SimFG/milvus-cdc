@@ -235,7 +235,7 @@ func (reader *MilvusCollectionReader) watchPartition(watchCtx context.Context) {
 					return
 				}
 				if info.State == pb.PartitionState_PartitionCreated &&
-					info.PartitionName != reader.etcdConfig.DefaultPartitionName {
+					!strings.Contains(info.PartitionName, reader.etcdConfig.DefaultPartitionName) {
 					collectionName, ok := reader.collectionID2Name.Load(id)
 					if !ok {
 						collectionName = reader.getCollectionNameByID(id)
