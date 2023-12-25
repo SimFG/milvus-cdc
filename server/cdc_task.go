@@ -85,7 +85,7 @@ func (c *CDCTask) Terminate(t func() error) <-chan error {
 }
 
 func (c *CDCTask) handle() {
-	done := make(chan struct{})
+	done := make(chan struct{}, 1)
 	for {
 		s := <-c.signaler
 		executeF := func() error {
