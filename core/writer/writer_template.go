@@ -38,7 +38,10 @@ import (
 	"github.com/zilliztech/milvus-cdc/core/util"
 )
 
-var log = util.Log
+var (
+	log              = util.Log
+	DynamicFieldName = "$meta"
+)
 
 type BufferConfig struct {
 	Period time.Duration
@@ -305,6 +308,11 @@ func (c *CDCWriterTemplate) handleInsertBuffer(msg *msgstream.InsertMsg,
 	// construct columns
 	var columns []entity.Column
 	for _, fieldData := range msg.FieldsData {
+		if fieldData.GetFieldName() == DynamicFieldName &&
+			len(fieldData.GetScalars().GetLongData().GetData()) == 0 &&
+			len(fieldData.GetScalars().GetStringData().GetData()) == 0 {
+			continue
+		}
 		if column, err := entity.FieldDataColumn(fieldData, 0, -1); err == nil {
 			columns = append(columns, column)
 		} else {
