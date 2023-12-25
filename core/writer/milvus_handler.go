@@ -41,14 +41,16 @@ type MilvusDataHandler struct {
 
 	factory MilvusClientFactory
 	// TODO support db
-	milvus MilvusClientAPI
+	milvus                  MilvusClientAPI
+	partitionKeyCollections map[string]struct{}
 }
 
 // NewMilvusDataHandler options must include AddressOption
 func NewMilvusDataHandler(options ...config.Option[*MilvusDataHandler]) (*MilvusDataHandler, error) {
 	handler := &MilvusDataHandler{
-		connectTimeout: 5,
-		factory:        NewDefaultMilvusClientFactory(),
+		connectTimeout:          5,
+		factory:                 NewDefaultMilvusClientFactory(),
+		partitionKeyCollections: make(map[string]struct{}),
 	}
 	for _, option := range options {
 		option.Apply(handler)
@@ -84,16 +86,26 @@ func (m *MilvusDataHandler) CreateCollection(ctx context.Context, param *CreateC
 		options = append(options, client.WithCollectionProperty(property.GetKey(), property.GetValue()))
 	}
 	options = append(options, client.WithConsistencyLevel(entity.ConsistencyLevel(param.ConsistencyLevel)))
+	for _, field := range param.Schema.Fields {
+		if field.IsPartitionKey {
+			m.partitionKeyCollections[param.Schema.CollectionName] = struct{}{}
+			break
+		}
+	}
 	return m.milvus.CreateCollection(ctx, param.Schema, param.ShardsNum, options...)
 }
 
 func (m *MilvusDataHandler) DropCollection(ctx context.Context, param *DropCollectionParam) error {
+	delete(m.partitionKeyCollections, param.CollectionName)
 	return m.milvus.DropCollection(ctx, param.CollectionName)
 }
 
 func (m *MilvusDataHandler) Insert(ctx context.Context, param *InsertParam) error {
 	partitionName := param.PartitionName
 	if m.ignorePartition {
+		partitionName = ""
+	}
+	if _, ok := m.partitionKeyCollections[param.CollectionName]; ok {
 		partitionName = ""
 	}
 	_, err := m.milvus.Insert(ctx, param.CollectionName, partitionName, param.Columns...)
@@ -103,6 +115,9 @@ func (m *MilvusDataHandler) Insert(ctx context.Context, param *InsertParam) erro
 func (m *MilvusDataHandler) Delete(ctx context.Context, param *DeleteParam) error {
 	partitionName := param.PartitionName
 	if m.ignorePartition {
+		partitionName = ""
+	}
+	if _, ok := m.partitionKeyCollections[param.CollectionName]; ok {
 		partitionName = ""
 	}
 
