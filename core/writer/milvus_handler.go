@@ -19,6 +19,7 @@ package writer
 import (
 	"context"
 	"errors"
+	"sync"
 	"time"
 
 	"github.com/milvus-io/milvus-sdk-go/v2/client"
@@ -42,15 +43,14 @@ type MilvusDataHandler struct {
 	factory MilvusClientFactory
 	// TODO support db
 	milvus                  MilvusClientAPI
-	partitionKeyCollections map[string]struct{}
+	partitionKeyCollections sync.Map
 }
 
 // NewMilvusDataHandler options must include AddressOption
 func NewMilvusDataHandler(options ...config.Option[*MilvusDataHandler]) (*MilvusDataHandler, error) {
 	handler := &MilvusDataHandler{
-		connectTimeout:          5,
-		factory:                 NewDefaultMilvusClientFactory(),
-		partitionKeyCollections: make(map[string]struct{}),
+		connectTimeout: 5,
+		factory:        NewDefaultMilvusClientFactory(),
 	}
 	for _, option := range options {
 		option.Apply(handler)
@@ -88,7 +88,8 @@ func (m *MilvusDataHandler) CreateCollection(ctx context.Context, param *CreateC
 	options = append(options, client.WithConsistencyLevel(entity.ConsistencyLevel(param.ConsistencyLevel)))
 	for _, field := range param.Schema.Fields {
 		if field.IsPartitionKey {
-			m.partitionKeyCollections[param.Schema.CollectionName] = struct{}{}
+			m.partitionKeyCollections.Store(param.Schema.CollectionName, true)
+			log.Info("collection has partition key", zap.String("collection_name", param.Schema.CollectionName))
 			break
 		}
 	}
@@ -96,8 +97,26 @@ func (m *MilvusDataHandler) CreateCollection(ctx context.Context, param *CreateC
 }
 
 func (m *MilvusDataHandler) DropCollection(ctx context.Context, param *DropCollectionParam) error {
-	delete(m.partitionKeyCollections, param.CollectionName)
+	m.partitionKeyCollections.Delete(param.CollectionName)
 	return m.milvus.DropCollection(ctx, param.CollectionName)
+}
+
+func (m *MilvusDataHandler) CheckPartitionKeyForCollection(ctx context.Context, collectionName string) bool {
+	if v, ok := m.partitionKeyCollections.Load(collectionName); ok {
+		return v.(bool)
+	}
+	collectionInfo, err := m.milvus.DescribeCollection(ctx, collectionName)
+	if err != nil {
+		return false
+	}
+	for _, field := range collectionInfo.Schema.Fields {
+		if field.IsPartitionKey {
+			m.partitionKeyCollections.Store(collectionName, true)
+			return true
+		}
+	}
+	m.partitionKeyCollections.Store(collectionName, false)
+	return false
 }
 
 func (m *MilvusDataHandler) Insert(ctx context.Context, param *InsertParam) error {
@@ -105,7 +124,7 @@ func (m *MilvusDataHandler) Insert(ctx context.Context, param *InsertParam) erro
 	if m.ignorePartition {
 		partitionName = ""
 	}
-	if _, ok := m.partitionKeyCollections[param.CollectionName]; ok {
+	if m.CheckPartitionKeyForCollection(ctx, param.CollectionName) {
 		partitionName = ""
 	}
 	_, err := m.milvus.Insert(ctx, param.CollectionName, partitionName, param.Columns...)
@@ -117,7 +136,7 @@ func (m *MilvusDataHandler) Delete(ctx context.Context, param *DeleteParam) erro
 	if m.ignorePartition {
 		partitionName = ""
 	}
-	if _, ok := m.partitionKeyCollections[param.CollectionName]; ok {
+	if m.CheckPartitionKeyForCollection(ctx, param.CollectionName) {
 		partitionName = ""
 	}
 

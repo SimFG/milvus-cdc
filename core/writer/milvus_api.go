@@ -40,6 +40,8 @@ type MilvusClientAPI interface {
 	ReleaseCollection(ctx context.Context, collName string, opts ...client.ReleaseCollectionOption) error
 	CreateDatabase(ctx context.Context, dbName string, opts ...client.CreateDatabaseOption) error
 	DropDatabase(ctx context.Context, dbName string, opts ...client.DropDatabaseOption) error
+
+	DescribeCollection(ctx context.Context, collName string) (*entity.Collection, error)
 }
 
 //go:generate mockery --name=MilvusClientFactory --filename=milvus_client_factory_mock.go --output=../mocks
