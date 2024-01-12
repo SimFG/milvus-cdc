@@ -178,12 +178,15 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 
 		if err := cdcWriter.Write(context.Background(), data, c.callback); err != nil {
 			log.Warn("fail to write the data", zap.Any("data", data), zap.Error(err))
-			err = <-c.Pause(c.writeFailFunc)
+			err = c.writeFailFunc()
 			if err != nil {
 				log.Warn("fail to pause inner", zap.Error(err))
 			}
+			cdcReader.QuitRead(context.Background())
+			log.Warn("has paused inner")
 		}
 	}
+
 	quit := func() {
 		cdcReader.QuitRead(context.Background())
 		for {

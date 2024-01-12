@@ -358,11 +358,12 @@ func (c *CDCWriterTemplate) handleInsertBuffer(msg *msgstream.InsertMsg,
 		return
 	}
 	// combine the data
-	if err := c.preCombineColumn(insertParam.Columns, columns); err != nil {
+	sortColumns, err := c.preCombineColumn(insertParam.Columns, columns)
+	if err != nil {
 		c.fail("fail to combine the data", err, data, callback)
 		return
 	}
-	c.combineColumn(insertParam.Columns, columns)
+	c.combineColumn(insertParam.Columns, sortColumns)
 	lastCombineData.successes = append(lastCombineData.successes, newCombineData.successes...)
 	lastCombineData.fails = append(lastCombineData.fails, newCombineData.fails...)
 }
@@ -968,15 +969,29 @@ func (c *CDCWriterTemplate) isSupportType(fieldType entity.FieldType) bool {
 		fieldType == entity.FieldTypeJSON
 }
 
-func (c *CDCWriterTemplate) preCombineColumn(a []entity.Column, b []entity.Column) error {
+func (c *CDCWriterTemplate) preCombineColumn(a []entity.Column, b []entity.Column) ([]entity.Column, error) {
+	sortColumn := make([]entity.Column, 0, len(b))
 	for i := range a {
-		if a[i].Type() != b[i].Type() || !c.isSupportType(b[i].Type()) {
-			log.Warn("fail to combine the column",
-				zap.Any("a", a[i].Type()), zap.Any("b", b[i].Type()))
-			return errors.New("fail to combine the column")
+		isExist := false
+		for j := range b {
+			if a[i].Name() == b[j].Name() {
+				if a[i].Type() != b[j].Type() || !c.isSupportType(b[j].Type()) {
+					log.Warn("fail to combine the column",
+						zap.String("column_name", a[i].Name()),
+						zap.Any("a", a[i].Type()), zap.Any("b", b[j].Type()))
+					return sortColumn, errors.New("fail to combine the column")
+				}
+				sortColumn = append(sortColumn, b[j])
+				isExist = true
+				break
+			}
+		}
+		if !isExist {
+			log.Warn("fail to combine the column, not found column", zap.String("column_name", a[i].Name()))
+			return sortColumn, errors.New("fail to combine the column, not found column")
 		}
 	}
-	return nil
+	return sortColumn, nil
 }
 
 // combineColumn the b will be added to a. before execute the method, MUST execute the preCombineColumn
