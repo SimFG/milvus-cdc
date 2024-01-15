@@ -63,7 +63,8 @@ type MetaCDC struct {
 		sync.RWMutex
 		data map[string]*CDCTask
 	}
-	factoryCreator FactoryCreator
+	factoryCreator    FactoryCreator
+	indexAndLoadPatch *cdcwriter.LoadAndIndexForNewCollection
 }
 
 func NewMetaCDC(serverConfig *CDCServerConfig) *MetaCDC {
@@ -103,6 +104,11 @@ func NewMetaCDC(serverConfig *CDCServerConfig) *MetaCDC {
 	cdc.collectionNames.excludeData = make(map[string][]string)
 	cdc.cdcTasks.data = make(map[string]*CDCTask)
 	cdc.factoryCreator = NewCDCFactory
+	cdc.indexAndLoadPatch = cdcwriter.NewLoadAndIndexForNewCollection(config.MilvusEtcdConfig{
+		Endpoints:   serverConfig.SourceConfig.EtcdAddress,
+		RootPath:    serverConfig.SourceConfig.EtcdRootPath,
+		MetaSubPath: serverConfig.SourceConfig.EtcdMetaSubPath,
+	})
 	return cdc
 }
 
@@ -484,6 +490,7 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string
 			taskLog.Warn("fail to new the data handler")
 			return nil, errors.WithMessage(err, "fail to new the data handler, task_id: "+info.TaskID)
 		}
+		dataHandler.AutoCreateIndexAndLoadForNewCollection = e.indexAndLoadPatch
 
 		cacheConfig := info.WriterCacheConfig
 		writer := cdcwriter.NewCDCWriterTemplate(

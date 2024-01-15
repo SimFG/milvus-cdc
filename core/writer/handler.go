@@ -19,12 +19,11 @@ package writer
 import (
 	"context"
 
+	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
 	"github.com/milvus-io/milvus-proto/go-api/v2/milvuspb"
+	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 
 	"github.com/zilliztech/milvus-cdc/core/util"
-
-	"github.com/milvus-io/milvus-proto/go-api/v2/commonpb"
-	"github.com/milvus-io/milvus-sdk-go/v2/entity"
 )
 
 type CDCDataHandler interface {
@@ -112,6 +111,7 @@ func (d *DefaultDataHandler) DropDatabase(ctx context.Context, param *DropDataBa
 }
 
 type CreateCollectionParam struct {
+	ID               int64 // which is source collection id for the index and load patch
 	Schema           *entity.Schema
 	ShardsNum        int32
 	ConsistencyLevel commonpb.ConsistencyLevel

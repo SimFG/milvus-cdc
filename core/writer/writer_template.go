@@ -774,6 +774,7 @@ func (c *CDCWriterTemplate) handleCreateCollection(ctx context.Context, data *mo
 	entitySchema := &entity.Schema{}
 	entitySchema = entitySchema.ReadProto(schema)
 	err = c.handler.CreateCollection(ctx, &CreateCollectionParam{
+		ID:               msg.CollectionID,
 		Schema:           entitySchema,
 		ShardsNum:        shardNum,
 		ConsistencyLevel: level,

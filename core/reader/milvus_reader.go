@@ -319,9 +319,12 @@ func (reader *MilvusCollectionReader) getAllCollections() {
 		reader.monitor.OnFailUnKnowCollection(reader.collectionPrefix(), err)
 	}
 	for _, info := range existedCollectionInfos {
-		if info.State == pb.CollectionState_CollectionCreated {
-			go reader.readStreamData(info, false)
+		if info.State != pb.CollectionState_CollectionCreated {
+			log.Info("skip the collection", zap.String("collection_name", reader.collectionName(info)),
+				zap.String("state", info.State.String()))
+			continue
 		}
+		go reader.readStreamData(info, false)
 	}
 }
 

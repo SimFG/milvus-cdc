@@ -44,6 +44,8 @@ type MilvusDataHandler struct {
 	// TODO support db
 	milvus                  MilvusClientAPI
 	partitionKeyCollections sync.Map
+
+	AutoCreateIndexAndLoadForNewCollection *LoadAndIndexForNewCollection
 }
 
 // NewMilvusDataHandler options must include AddressOption
@@ -93,7 +95,23 @@ func (m *MilvusDataHandler) CreateCollection(ctx context.Context, param *CreateC
 			break
 		}
 	}
-	return m.milvus.CreateCollection(ctx, param.Schema, param.ShardsNum, options...)
+	err := m.milvus.CreateCollection(ctx, param.Schema, param.ShardsNum, options...)
+	if err == nil {
+		go func(collectionID int64, collectionName string) {
+			m.AutoCreateIndexAndLoadForNewCollection.Execute(collectionID, collectionName, func(indexParam *CreateIndexParam) {
+				err := m.CreateIndex(context.Background(), indexParam)
+				if err != nil {
+					log.Warn("fail to create index", zap.Any("param", indexParam), zap.Error(err))
+				}
+			}, func(loadParam *LoadCollectionParam) {
+				err := m.LoadCollection(context.Background(), loadParam)
+				if err != nil {
+					log.Warn("fail to load collection", zap.Any("param", loadParam), zap.Error(err))
+				}
+			})
+		}(param.ID, param.Schema.CollectionName)
+	}
+	return err
 }
 
 func (m *MilvusDataHandler) DropCollection(ctx context.Context, param *DropCollectionParam) error {
