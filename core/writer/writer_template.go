@@ -141,6 +141,7 @@ func (c *CDCWriterTemplate) initBuffer() {
 
 			bufferData := <-c.bufferDataChan
 			if len(bufferData) == 0 {
+				c.bufferLock.Lock()
 				var infosString []string
 				for collectionID, collectionPositions := range c.collectionTimeTickPositions {
 					var channels []string
@@ -154,9 +155,12 @@ func (c *CDCWriterTemplate) initBuffer() {
 				log.Info("update position from timetick msg",
 					zap.String("collection_timetick", strings.Join(infosString, ",")))
 				c.resetCollectionTimeTickPositions()
+				c.bufferLock.Unlock()
 				continue
 			}
+			c.bufferLock.Lock()
 			c.resetCollectionTimeTickPositions()
+			c.bufferLock.Unlock()
 			log.Info("handle buffer data",
 				zap.Int("size", len(bufferData)), zap.String("msg_type", bufferData[0].A.Msg.Type().String()))
 			combineDataMap := make(map[string][]*CombineData)
