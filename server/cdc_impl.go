@@ -22,7 +22,6 @@ import (
 	"fmt"
 	"strings"
 	"sync"
-	"time"
 
 	"github.com/cockroachdb/errors"
 	"github.com/golang/protobuf/proto"
@@ -480,27 +479,29 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string
 
 	writeCallback := NewWriteCallback(e.metaStoreFactory, e.rootPath, info.TaskID)
 	newWriterFunc := NewWriterFunc(func() (cdcwriter.CDCWriter, error) {
-		var err error
-		taskLog := log.With(zap.String("task_id", info.TaskID), zap.Error(err))
-		targetConfig := info.MilvusConnectParam
-		dataHandler, err := cdcwriter.NewMilvusDataHandler(
-			cdcwriter.AddressOption(fmt.Sprintf("%s:%d", targetConfig.Host, targetConfig.Port)),
-			cdcwriter.UserOption(targetConfig.Username, targetConfig.Password),
-			cdcwriter.TLSOption(targetConfig.EnableTLS),
-			cdcwriter.IgnorePartitionOption(targetConfig.IgnorePartition),
-			cdcwriter.ConnectTimeoutOption(targetConfig.ConnectTimeout))
-		if err != nil {
-			taskLog.Warn("fail to new the data handler")
-			return nil, errors.WithMessage(err, "fail to new the data handler, task_id: "+info.TaskID)
-		}
-		dataHandler.AutoCreateIndexAndLoadForNewCollection = e.indexAndLoadPatch
+		//var err error
+		//taskLog := log.With(zap.String("task_id", info.TaskID), zap.Error(err))
+		//targetConfig := info.MilvusConnectParam
+		//dataHandler, err := cdcwriter.NewMilvusDataHandler(
+		//	cdcwriter.AddressOption(fmt.Sprintf("%s:%d", targetConfig.Host, targetConfig.Port)),
+		//	cdcwriter.UserOption(targetConfig.Username, targetConfig.Password),
+		//	cdcwriter.TLSOption(targetConfig.EnableTLS),
+		//	cdcwriter.IgnorePartitionOption(targetConfig.IgnorePartition),
+		//	cdcwriter.ConnectTimeoutOption(targetConfig.ConnectTimeout))
+		//if err != nil {
+		//	taskLog.Warn("fail to new the data handler")
+		//	return nil, errors.WithMessage(err, "fail to new the data handler, task_id: "+info.TaskID)
+		//}
+		//dataHandler.AutoCreateIndexAndLoadForNewCollection = e.indexAndLoadPatch
+		//
+		//cacheConfig := info.WriterCacheConfig
+		//writer := cdcwriter.NewCDCWriterTemplate(
+		//	cdcwriter.HandlerOption(NewDataHandlerWrapper(info.TaskID, dataHandler)),
+		//	cdcwriter.BufferOption(time.Duration(cacheConfig.Period)*time.Second,
+		//		int64(cacheConfig.Size), writeCallback.UpdateTaskCollectionPosition))
+		//return writer, nil
 
-		cacheConfig := info.WriterCacheConfig
-		writer := cdcwriter.NewCDCWriterTemplate(
-			cdcwriter.HandlerOption(NewDataHandlerWrapper(info.TaskID, dataHandler)),
-			cdcwriter.BufferOption(time.Duration(cacheConfig.Period)*time.Second,
-				int64(cacheConfig.Size), writeCallback.UpdateTaskCollectionPosition))
-		return writer, nil
+		return &cdcwriter.DebugWriter{}, nil
 	})
 
 	e.cdcTasks.Lock()

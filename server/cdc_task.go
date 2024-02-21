@@ -171,7 +171,7 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 			count = int(msg.NumRows)
 			collectionID = msg.CollectionID
 		}
-		log.Info("write buffer data", zap.Any("data_type", data.Msg.Type().String()), zap.String("id", c.id))
+		log.Info("write buffer data", zap.Any("data_type", data.Msg.Type().String()), zap.Uint64("end_ts", data.Msg.EndTs()), zap.String("id", c.id))
 		if msgType != "" {
 			metrics.ReadMsgRowCountVec.WithLabelValues(c.id, strconv.FormatInt(collectionID, 10), msgType).Add(float64(count))
 		}
@@ -188,14 +188,17 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 	}
 
 	quit := func() {
+		log.Info("start quit work", zap.String("id", c.id))
 		cdcReader.QuitRead(context.Background())
+		log.Info("quit read done", zap.String("id", c.id), zap.Int("data_len", len(dataChan)))
 		for {
 			select {
 			case data := <-dataChan:
 				writeData(data)
 			default:
-				log.Info("quit work", zap.Any("id", c.id), zap.String("id", c.id))
+				log.Info("quit work", zap.String("id", c.id))
 				cdcWriter.Flush(context.Background())
+				log.Info("flush done", zap.String("id", c.id))
 				return
 			}
 		}

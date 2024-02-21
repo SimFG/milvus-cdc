@@ -23,6 +23,7 @@ import (
 	"github.com/milvus-io/milvus/pkg/mq/msgstream"
 	"github.com/zilliztech/milvus-cdc/core/model"
 	"github.com/zilliztech/milvus-cdc/core/util"
+	"go.uber.org/zap"
 )
 
 //go:generate mockery --name=CDCWriter --filename=cdc_writer_mock.go --output=../mocks
@@ -43,6 +44,19 @@ func (d *DefaultWriter) Write(context context.Context, data *model.CDCData, call
 }
 
 func (d *DefaultWriter) Flush(context context.Context) {
+}
+
+type DebugWriter struct {
+	util.CDCMark
+}
+
+func (d *DebugWriter) Write(context context.Context, data *model.CDCData, callback WriteCallback) error {
+	log.Info("write debug writer", zap.Any("data", data))
+	return nil
+}
+
+func (d *DebugWriter) Flush(context context.Context) {
+	log.Warn("flush debug writer")
 }
 
 type CallbackChannelInfo struct {
