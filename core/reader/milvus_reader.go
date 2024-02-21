@@ -597,10 +597,12 @@ func (reader *MilvusCollectionReader) readMsg(collectionName string, collectionI
 	}
 	for {
 		if reader.isQuit.Load() && barrierManager.IsEmpty() {
+			log.Info("collection reader quit", zap.String("collection_name", collectionName))
 			return
 		}
-		msgPack := <-c
-		if msgPack == nil {
+		msgPack, ok := <-c
+		if msgPack == nil || !ok {
+			log.Info("collection reader quit", zap.String("collection_name", collectionName))
 			return
 		}
 		var hasLogPosition = false
@@ -642,7 +644,7 @@ func (reader *MilvusCollectionReader) readMsg(collectionName string, collectionI
 			if reader.filterMsg(collectionName, collectionID, msg) {
 				continue
 			}
-			log.Info("msgType", zap.Any("msg_type", msgType))
+			log.Info("msgType", zap.Any("msg_type", msgType), zap.String("collection_name", collectionName))
 			if !hasLogPosition {
 				logMsgPosition(msgPack.EndTs, msgPack.EndPositions[0])
 				hasLogPosition = true
@@ -709,6 +711,8 @@ func (reader *MilvusCollectionReader) CancelWatchCollection() {
 
 func (reader *MilvusCollectionReader) QuitRead(ctx context.Context) {
 	reader.quitOnce.Do(func() {
+		log.Info("quit read", zap.String("api_collection", collectionInfosString(reader.apiCollections)),
+			zap.String("collection", collectionInfosString(reader.collections)))
 		reader.isQuit.Store(true)
 		reader.CancelWatchCollection()
 		reader.closeStreamFuncs.Range(func(_ int, value func()) bool {

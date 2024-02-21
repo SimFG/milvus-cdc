@@ -146,7 +146,7 @@ func (c *CDCTask) handle() {
 			c.handleDone(s.done, nil)
 			return
 		default:
-			log.Warn("unknown signal", zap.String("signal", s.state.String()))
+			log.Warn("unknown signal", zap.String("signal", s.state.String()), zap.String("id", c.id))
 		}
 	}
 }
@@ -171,19 +171,19 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 			count = int(msg.NumRows)
 			collectionID = msg.CollectionID
 		}
-		log.Info("write buffer data", zap.Any("data_type", data.Msg.Type().String()))
+		log.Info("write buffer data", zap.Any("data_type", data.Msg.Type().String()), zap.String("id", c.id))
 		if msgType != "" {
 			metrics.ReadMsgRowCountVec.WithLabelValues(c.id, strconv.FormatInt(collectionID, 10), msgType).Add(float64(count))
 		}
 
 		if err := cdcWriter.Write(context.Background(), data, c.callback); err != nil {
-			log.Warn("fail to write the data", zap.Any("data", data), zap.Error(err))
+			log.Warn("fail to write the data", zap.Any("data", data), zap.Error(err), zap.String("id", c.id))
 			err = c.writeFailFunc()
 			if err != nil {
-				log.Warn("fail to pause inner", zap.Error(err))
+				log.Warn("fail to pause inner", zap.Error(err), zap.String("id", c.id))
 			}
 			cdcReader.QuitRead(context.Background())
-			log.Warn("has paused inner")
+			log.Warn("has paused inner", zap.String("id", c.id))
 		}
 	}
 
@@ -194,7 +194,7 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 			case data := <-dataChan:
 				writeData(data)
 			default:
-				log.Info("quit work", zap.Any("id", c.id))
+				log.Info("quit work", zap.Any("id", c.id), zap.String("id", c.id))
 				cdcWriter.Flush(context.Background())
 				return
 			}

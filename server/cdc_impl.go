@@ -400,15 +400,15 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string
 			if len(positions) != 0 {
 				position := positions[0]
 				if position.CollectionName != util.RPCRequestCollectionName || position.CollectionID != util.RPCRequestCollectionID {
-					log.Panic("the collection name or id is not match the rpc request channel info", zap.Any("position", position))
+					taskLog.Panic("the collection name or id is not match the rpc request channel info", zap.Any("position", position))
 				}
 				kp, ok := position.Positions[channelName]
 				if !ok {
-					log.Panic("the channel name is not match the rpc request channel info", zap.Any("position", position))
+					taskLog.Panic("the channel name is not match the rpc request channel info", zap.Any("position", position))
 				}
 				positionBytes, err := proto.Marshal(kp)
 				if err != nil {
-					log.Warn("fail to marshal the key data pair", zap.Error(err))
+					taskLog.Warn("fail to marshal the key data pair", zap.Error(err))
 					return nil, err
 				}
 				channelPosition = base64.StdEncoding.EncodeToString(positionBytes)
@@ -450,7 +450,10 @@ func (e *MetaCDC) newCdcTask(info *meta.TaskInfo, collectionPositions map[string
 					taskCollectionPositions[channelInfo.Name] = inputPosition
 				}
 			}
+		} else {
+			taskLog.Info("api collection position is nil")
 		}
+		collectionPositions = nil
 
 		var options []config.Option[*cdcreader.MilvusCollectionReader]
 		for s, m := range taskPosition {
