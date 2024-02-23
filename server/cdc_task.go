@@ -188,6 +188,7 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 	}
 
 	quit := func() {
+		log.Info("quit start", zap.Any("id", c.id), zap.String("id", c.id), zap.Int("chan_len", len(dataChan)))
 		cdcReader.QuitRead(context.Background())
 		for {
 			select {
@@ -196,6 +197,7 @@ func (c *CDCTask) work(done <-chan struct{}, cdcReader reader.CDCReader, cdcWrit
 			default:
 				log.Info("quit work", zap.Any("id", c.id), zap.String("id", c.id))
 				cdcWriter.Flush(context.Background())
+				log.Info("quit done", zap.Any("id", c.id), zap.String("id", c.id))
 				return
 			}
 		}

@@ -75,6 +75,7 @@ type CDCWriterTemplate struct {
 	bufferData     []lo.Tuple2[*model.CDCData, WriteCallback]
 	bufferDataChan chan []lo.Tuple2[*model.CDCData, WriteCallback]
 
+	timetickLock                sync.Mutex
 	collectionTimeTickPositions map[int64]map[string]*commonpb.KeyDataPair
 	collectionNames             map[int64]string
 
@@ -141,7 +142,7 @@ func (c *CDCWriterTemplate) initBuffer() {
 
 			bufferData := <-c.bufferDataChan
 			if len(bufferData) == 0 {
-				c.bufferLock.Lock()
+				c.timetickLock.Lock()
 				var infosString []string
 				for collectionID, collectionPositions := range c.collectionTimeTickPositions {
 					var channels []string
@@ -155,14 +156,29 @@ func (c *CDCWriterTemplate) initBuffer() {
 				log.Info("update position from timetick msg",
 					zap.String("collection_timetick", strings.Join(infosString, ",")))
 				c.resetCollectionTimeTickPositions()
-				c.bufferLock.Unlock()
+				c.timetickLock.Unlock()
 				continue
 			}
-			c.bufferLock.Lock()
+			c.timetickLock.Lock()
 			c.resetCollectionTimeTickPositions()
-			c.bufferLock.Unlock()
+			c.timetickLock.Unlock()
+
+			logCollectionID := int64(0)
+			logCollectionName := ""
+
+			if x, ok := bufferData[0].A.Msg.(interface{ GetCollectionName() string }); ok {
+				logCollectionName = x.GetCollectionName()
+			}
+
+			if y, ok := bufferData[0].A.Msg.(interface{ GetCollectionID() int64 }); ok {
+				logCollectionID = y.GetCollectionID()
+			}
+
 			log.Info("handle buffer data",
-				zap.Int("size", len(bufferData)), zap.String("msg_type", bufferData[0].A.Msg.Type().String()))
+				zap.Int("size", len(bufferData)),
+				zap.String("msg_type", bufferData[0].A.Msg.Type().String()),
+				zap.Int64("collection_id", logCollectionID),
+				zap.String("collection_name", logCollectionName))
 			combineDataMap := make(map[string][]*CombineData)
 			c.combineDataFunc(bufferData, combineDataMap, positionFunc)
 			executeSuccesses := func(successes []func()) {
@@ -854,8 +870,8 @@ func (c *CDCWriterTemplate) handleDropPartition(ctx context.Context, data *model
 }
 
 func (c *CDCWriterTemplate) handleTimeTick(ctx context.Context, data *model.CDCData, callback WriteCallback) {
-	c.bufferLock.Lock()
-	defer c.bufferLock.Unlock()
+	c.timetickLock.Lock()
+	defer c.timetickLock.Unlock()
 
 	if c.collectionTimeTickPositions == nil || c.collectionNames == nil {
 		c.resetCollectionTimeTickPositions()
