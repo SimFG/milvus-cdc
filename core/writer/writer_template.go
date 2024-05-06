@@ -329,8 +329,8 @@ func (c *CDCWriterTemplate) handleInsertBuffer(msg *msgstream.InsertMsg,
 	var columns []entity.Column
 	for _, fieldData := range msg.FieldsData {
 		if fieldData.GetFieldName() == DynamicFieldName &&
-			len(fieldData.GetScalars().GetLongData().GetData()) == 0 &&
-			len(fieldData.GetScalars().GetStringData().GetData()) == 0 {
+			len(fieldData.GetScalars().GetJsonData().GetData()) == 0 {
+			log.Info("skip dynamic field", zap.String("collection_name", collectionName))
 			continue
 		}
 		if column, err := entity.FieldDataColumn(fieldData, 0, -1); err == nil {
