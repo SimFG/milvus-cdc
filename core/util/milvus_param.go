@@ -18,7 +18,7 @@
 
 package util
 
-import "github.com/milvus-io/milvus/pkg/util/paramtable"
+import "github.com/milvus-io/milvus/pkg/v2/util/paramtable"
 
 func InitMilvusPkgParam() {
 	baseTable := paramtable.NewBaseTable(
